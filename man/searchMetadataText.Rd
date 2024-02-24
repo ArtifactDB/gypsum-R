@@ -2,6 +2,8 @@
 % Please edit documentation in R/searchMetadataText.R
 \name{searchMetadataText}
 \alias{searchMetadataText}
+\alias{gypsum.search.clause}
+\alias{Ops.gypsum.search.clause}
 \alias{searchMetadataTextFilter}
 \title{Text search on the metadata database}
 \usage{
@@ -12,13 +14,23 @@ searchMetadataTextFilter(query, pid.name = "paths.pid")
 \arguments{
 \item{path}{String containing a path to a SQLite file, usually obtained via \code{\link{fetchMetadataDatabase}}.}
 
-\item{query}{List or character vector specifying the query to execute, see Details.}
+\item{query}{Character vector specifying the query to execute.
+Alternatively, a \code{gypsum.search.object} produced by \code{defineTextQuery}.}
 
 \item{latest}{Logical scalar indicating whether to only search for matches within the latest version of each asset.}
 
 \item{include.metadata}{Logical scalar indicating whether metadata should be returned.}
 
 \item{pid.name}{String containing the name/alias of the column of the \code{paths} table that contains the path ID.}
+
+\item{text}{String containing the text to query on.
+This will be automatically tokenized, see Details.}
+
+\item{field}{String specifying the name of the metadata field in which to search for \code{text}.
+If \code{NULL}, the search is performed on all available metadata fields.}
+
+\item{partial}{Logical scalar indicating whether \code{text} contains SQLite wildcards (\code{\%}, \code{_}) for a partial search.
+If \code{TRUE}, the wildcards are preserved during tokenization.}
 }
 \value{
 For \code{searchMetadataText}, a data frame specifying the contaning the search results.
@@ -33,6 +45,8 @@ Otherwise, only the latest version is returned.
 For \code{searchMetadataTextFilter}, a list containing \code{where}, a string can be directly used as a WHERE filter condition in a SQL SELECT statement;
 and \code{parameters}, the parameter bindings to be used in \code{where}.
 The return value may also be \code{NULL} if the query has no well-defined filter.
+
+For \code{defineTextQuery}, a \code{gypsum.search.clause} object that can be used in \code{|} and \code{&} to create more complex queries involving multiple text clauses.
 }
 \description{
 Perform a text search on a SQLite database containing metadata from the gypsum backend.
@@ -40,49 +54,27 @@ This is based on a precomputed tokenization of all string properties in each met
 see \url{https://github.com/ArtifactDB/bioconductor-metadata-index} for details.
 }
 \details{
-When \code{query} is a list, the SQL filter expression is constructed using the following rules:
-\itemize{
-\item If \code{query} has a \code{type} attribute set to \code{"and"}, it represents a boolean AND operation.
-Each item of \code{query} should be a nested list representing a subquery; all subqueries must match.
-\item If \code{query} has a \code{type} attribute set to \code{"or"}, it represents a boolean OR operation.
-Each item of \code{query} should be a nested list representing a subquery; at least one subquery must match.
-\item If \code{query} does not have a \code{type} attribute, it represents a query on a text string.
-\code{query} itself should contain a single character vector of length 1, representing the string to be matched.
-\itemize{
-\item If \code{query} has a \code{partial} attribute set to \code{TRUE}, the string is directly used for a wildcard match to the token in the database.
-This expects SQLite's \code{\%} and \code{_} wildcards.
-\item Otherwise, the string is tokenized and used for equality comparison to tokens in the database.
-If tokenization yields multiple tokens from the string, all tokens must have matches in the database for the text to be considered as matched.
-\item Additionally, \code{query} may have a \code{field} attribute, restricting the token matches to a particular metadata field.
-If this is not present, the search for matching tokens is performed across all available metadata fields.
-}
-}
-
 Each string is tokenized by converting it to lower case and splitting it on characters that are not Unicode letters/numbers or a dash.
 We currently do not remove diacritics so these will need to be converted to ASCII by the user. 
 If a text query involves only non-letter/number/dash characters, the filter will not be well-defined and will be ignored when constructing SQL statements.
 
-For convenience, any list inside \code{query} (or indeed, \code{query} itself) may be replaced by a non-empty character vector.
-A character vector of length 1 is treated as shorthand for a text query with no \code{partial} or \code{field} attributes.
-A character vector of length greater than 1 is treated as shorthand for an AND operation on text queries for each of the individual strings.
+For convenience, a non-empty character vector may be used in \code{query}.
+A character vector of length 1 is treated as shorthand for a text query with default arguments in \code{defineTextQuery}.
+A character vector of length greater than 1 is treated as shorthand for an AND operation on default text queries for each of the individual strings.
 }
 \examples{
 path <- fetchMetadataDatabase()
 searchMetadataText(path, c("mouse", "brain"), include.metadata=FALSE)
 
 # Now for a slightly more complex query:
-tissue.query <- list("brain", "pancreas")
-attr(tissue.query, "type") <- "or"
-species.query <- list("10090")
-attr(species.query, "field") <- "taxonomy_id"
-query <- list(tissue.query, species.query)
-attr(query, "type") <- "and"
+is.mouse <- defineTextQuery("10090", field="taxonomy_id")
+query <- (defineTextQuery("brain") | defineTextQuery("pancreas")) & is.mouse
 searchMetadataText(path, query, include.metadata=FALSE)
 
 # Throwing in some wildcards.
-query <- list("neuro\%")
-attr(query, "partial") <- TRUE
-searchMetadataText(path, query, include.metadata=FALSE)
+has.neuro <- defineTextQuery("Neuro\%", partial=TRUE)
+searchMetadataText(path, has.neuro, include.metadata=FALSE)
+
 }
 \seealso{
 \code{\link{fetchMetadataDatabase}}, to download and cache the database files.

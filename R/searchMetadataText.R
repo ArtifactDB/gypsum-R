@@ -4,11 +4,18 @@
 #' This is based on a precomputed tokenization of all string properties in each metadata document;
 #' see \url{https://github.com/ArtifactDB/bioconductor-metadata-index} for details.
 #'
-#' @param query List or character vector specifying the query to execute, see Details.
+#' @param query Character vector specifying the query to execute.
+#' Alternatively, a \code{gypsum.search.object} produced by \code{defineTextQuery}.
 #' @param path String containing a path to a SQLite file, usually obtained via \code{\link{fetchMetadataDatabase}}.
 #' @param latest Logical scalar indicating whether to only search for matches within the latest version of each asset.
 #' @param include.metadata Logical scalar indicating whether metadata should be returned.
 #' @param pid.name String containing the name/alias of the column of the \code{paths} table that contains the path ID.
+#' @param text String containing the text to query on.
+#' This will be automatically tokenized, see Details.
+#' @param field String specifying the name of the metadata field in which to search for \code{text}.
+#' If \code{NULL}, the search is performed on all available metadata fields.
+#' @param partial Logical scalar indicating whether \code{text} contains SQLite wildcards (\code{\%}, \code{_}) for a partial search.
+#' If \code{TRUE}, the wildcards are preserved during tokenization.
 #'
 #' @return 
 #' For \code{searchMetadataText}, a data frame specifying the contaning the search results.
@@ -24,34 +31,18 @@
 #' and \code{parameters}, the parameter bindings to be used in \code{where}.
 #' The return value may also be \code{NULL} if the query has no well-defined filter.
 #'
+#' For \code{defineTextQuery}, a \code{gypsum.search.clause} object that can be used in \code{|} and \code{&} to create more complex queries involving multiple text clauses.
+#'
 #' @author Aaron Lun
 #'
 #' @details
-#' When \code{query} is a list, the SQL filter expression is constructed using the following rules:
-#' \itemize{
-#' \item If \code{query} has a \code{type} attribute set to \code{"and"}, it represents a boolean AND operation.
-#' Each item of \code{query} should be a nested list representing a subquery; all subqueries must match.
-#' \item If \code{query} has a \code{type} attribute set to \code{"or"}, it represents a boolean OR operation.
-#' Each item of \code{query} should be a nested list representing a subquery; at least one subquery must match.
-#' \item If \code{query} does not have a \code{type} attribute, it represents a query on a text string.
-#' \code{query} itself should contain a single character vector of length 1, representing the string to be matched.
-#' \itemize{
-#' \item If \code{query} has a \code{partial} attribute set to \code{TRUE}, the string is directly used for a wildcard match to the token in the database.
-#' This expects SQLite's \code{\%} and \code{_} wildcards.
-#' \item Otherwise, the string is tokenized and used for equality comparison to tokens in the database.
-#' If tokenization yields multiple tokens from the string, all tokens must have matches in the database for the text to be considered as matched.
-#' \item Additionally, \code{query} may have a \code{field} attribute, restricting the token matches to a particular metadata field.
-#' If this is not present, the search for matching tokens is performed across all available metadata fields.
-#' }
-#' }
-#'
 #' Each string is tokenized by converting it to lower case and splitting it on characters that are not Unicode letters/numbers or a dash.
 #' We currently do not remove diacritics so these will need to be converted to ASCII by the user. 
 #' If a text query involves only non-letter/number/dash characters, the filter will not be well-defined and will be ignored when constructing SQL statements.
 #'
-#' For convenience, any list inside \code{query} (or indeed, \code{query} itself) may be replaced by a non-empty character vector.
-#' A character vector of length 1 is treated as shorthand for a text query with no \code{partial} or \code{field} attributes.
-#' A character vector of length greater than 1 is treated as shorthand for an AND operation on text queries for each of the individual strings.
+#' For convenience, a non-empty character vector may be used in \code{query}.
+#' A character vector of length 1 is treated as shorthand for a text query with default arguments in \code{defineTextQuery}.
+#' A character vector of length greater than 1 is treated as shorthand for an AND operation on default text queries for each of the individual strings.
 #' 
 #' @seealso
 #' \code{\link{fetchMetadataDatabase}}, to download and cache the database files.
@@ -63,27 +54,22 @@
 #' searchMetadataText(path, c("mouse", "brain"), include.metadata=FALSE)
 #'
 #' # Now for a slightly more complex query:
-#' tissue.query <- list("brain", "pancreas")
-#' attr(tissue.query, "type") <- "or"
-#' species.query <- list("10090")
-#' attr(species.query, "field") <- "taxonomy_id"
-#' query <- list(tissue.query, species.query)
-#' attr(query, "type") <- "and"
+#' is.mouse <- defineTextQuery("10090", field="taxonomy_id")
+#' query <- (defineTextQuery("brain") | defineTextQuery("pancreas")) & is.mouse
 #' searchMetadataText(path, query, include.metadata=FALSE)
 #'
 #' # Throwing in some wildcards.
-#' query <- list("neuro%")
-#' attr(query, "partial") <- TRUE
-#' searchMetadataText(path, query, include.metadata=FALSE)
+#' has.neuro <- defineTextQuery("Neuro%", partial=TRUE)
+#' searchMetadataText(path, has.neuro, include.metadata=FALSE)
+#'
+#' @aliases
+#' gypsum.search.clause
+#' Ops.gypsum.search.clause
 #' @export
 searchMetadataText <- function(path, query, latest=TRUE, include.metadata=TRUE) {
     where <- searchMetadataTextFilter(query)
     cond <- where$where
-    if (is.null(where)) {
-        params <- list()
-    } else {
-        params <- where$parameters
-    }
+    params <- where$parameters
 
     conn <- DBI::dbConnect(RSQLite::SQLite(), path)
     on.exit(DBI::dbDisconnect(conn))
@@ -104,11 +90,35 @@ searchMetadataText <- function(path, query, latest=TRUE, include.metadata=TRUE) 
         stmt <- paste0(stmt, " WHERE ", paste(cond, collapse=" AND "))
     }
 
-    everything <- DBI::dbGetQuery(conn, stmt, params=params)
+    if (is.null(params)) {
+        everything <- DBI::dbGetQuery(conn, stmt)
+    } else {
+        everything <- DBI::dbGetQuery(conn, stmt, params=params)
+    }
     if (include.metadata) {
         everything$metadata <- lapply(everything$metadata, fromJSON, simplifyVector=FALSE)
     }
     everything
+}
+
+#' @export
+defineTextQuery <- function(text, field=NULL, partial=FALSE) {
+    output <- list(type="text", text=text, field=field, partial=partial)
+    class(output) <- "gypsum.search.clause"
+    output
+}
+
+#' @export
+Ops.gypsum.search.clause <- function(e1, e2) {
+    if (.Generic == "&") {
+        output <- list(type="and", children=list(e1, e2))
+    } else if (.Generic == "|") {
+        output <- list(type="or", children=list(e1, e2))
+    } else {
+        stop("unsupported generic '", .Generic, "' for 'gypsum.search.clause'")
+    }
+    class(output) <- "gypsum.search.clause"
+    output
 }
 
 #' @export
@@ -128,57 +138,61 @@ searchMetadataTextFilter <- function(query, pid.name = 'paths.pid') {
 sanitize_query <- function(query) {
     if (is.character(query)) {
         if (length(query) > 1) {
-            query <- as.list(query)
-            attr(query, "type") <- "and"
+            query <- list(type="and", children=lapply(query, defineTextQuery))
+            class(query) <- "gypsum.search.clause"
+        } else if (length(query) == 1L) {
+            query <- defineTextQuery(query)
         } else {
-            query <- list(query)
+            stop("character vector must be non-empty")
         }
     }
 
-    qt <- attr(query, "type")
-    if (!is.null(qt)) {
-        out <- lapply(query, sanitize_query)
+    qt <- query$type
+    if (qt != "text") {
+        rechildren <- lapply(query$children, sanitize_query)
 
-        # Collapse AND/ORs into a single layer to reduce nesting of subqueries.
-        can.merge <- vapply(out, function(x) identical(attr(x, "type"), qt), TRUE)
-        out <- c(unlist(out[can.merge], recursive=FALSE), out[!can.merge])
-
-        keep <- !vapply(out, is.null, FALSE)
+        keep <- !vapply(rechildren, is.null, FALSE)
         if (!any(keep)) {
             return(NULL)
         }
-        out <- out[keep]
+        if (!all(keep)) {
+            rechildren <- rechildren[keep]
+        }
+        if (length(rechildren) == 1L) {
+            return(rechildren[[1]])
+        }
 
-        attr(out, "type") <- qt
-        return(out)
+        # Collapse AND/ORs into a single layer to reduce nesting of subqueries.
+        can.merge <- vapply(rechildren, function(x) x$type, "") == qt
+        if (any(can.merge)) {
+            grandchildren <- lapply(rechildren[can.merge], function(x) x$children)
+            rechildren <- c(unlist(grandchildren, recursive=FALSE), rechildren[!can.merge])
+        }
+
+        output <- list(type=qt, children=rechildren)
+        class(output) <- "gypsum.search.clause"
+        return(output)
     }
 
-    if (!is.null(qt)) {
-        stop("'type' must be one of 'and', 'or' or absent")
-    }
-    if (isTRUE(attr(query, "partial"))) {
-        return(query)
+    extras <- ""
+    if (isTRUE(query$partial)) {
+        extras <- "%_"
     }
 
-    text <- strsplit(tolower(query[[1]]), "[^\\p{N}\\p{L}\\p{Co}-]", perl=TRUE)[[1]]
+    text <- strsplit(tolower(query$text), sprintf("[^\\p{N}\\p{L}\\p{Co}%s-]", extras), perl=TRUE)[[1]]
     keep <- vapply(text, nchar, 0L) > 0L
     if (!any(keep)) {
         return(NULL)
     }
 
-    text <- text[keep]
-    if (length(text) == 1L) {
-        query[[1]] <- text # replacing query to preserve other search information, e.g., the field.
-        return(query)
-    } 
-
-    output <- vector("list", length(text))
-    for (i in seq_along(output)) {
-        query[[1]] <- text[[i]]
-        output[[i]] <- query
+    children <- lapply(text[keep], defineTextQuery, field=query$field, partial=isTRUE(query$partial))
+    if (length(children) == 1L) {
+        return(children[[1]])
     }
-    attr(output, 'type') <- 'and'
-    output
+
+    output <- list(type="and", children=children)
+    class(output) <- "gypsum.search.clause"
+    output 
 }
 
 add_query_parameter <- function(env, value) {
@@ -188,16 +202,16 @@ add_query_parameter <- function(env, value) {
 }
 
 build_query <- function(query, name, env) {
-    qt <- attr(query, "type")
-    if (is.null(qt)) {
-        nt <- add_query_parameter(env, query[[1]])
-        if (isTRUE(attr(query, "partial"))) {
+    qt <- query$type
+    if (qt == "text") {
+        nt <- add_query_parameter(env, query$text)
+        if (isTRUE(query$partial)) {
             match.str <- paste0("tokens.token LIKE :", nt) 
         } else {
             match.str <- paste0("tokens.token = :", nt) 
         }
 
-        field <- attr(query, "field")
+        field <- query$field
         if (!is.null(field)) {
             nf <- add_query_parameter(env, field)
             return(sprintf("%s IN (SELECT pid from links LEFT JOIN tokens ON tokens.tid = links.tid LEFT JOIN fields ON fields.fid = links.fid WHERE %s AND fields.field = :%s)", name, match.str, nf))
@@ -207,32 +221,28 @@ build_query <- function(query, name, env) {
     }
 
     if (qt == "and") {
-        out <- lapply(query, build_query, name=name, env=env)
-        if (length(out) > 1) {
-            return(paste0("(", paste(out, collapse=" AND "), ")"))
-        } else {
-            return(out[[1]])
-        }
+        out <- lapply(query$children, build_query, name=name, env=env)
+        return(paste0("(", paste(out, collapse=" AND "), ")"))
     }
 
-    is.text <- vapply(query, function(x) is.null(attr(x, "type")), TRUE)
+    is.text <- vapply(query$children, function(x) query$type, "") == "text"
     out <- character(0)
 
-    # Roll up OR text queries into a single subquery, as we can do that with ORs.
+    # Collapse text children into a single subquery.
     if (any(is.text)) {
-        textual <- query[is.text]
+        textual <- query$children[is.text]
         needs.field <- FALSE
 
         for (i in seq_along(textual)) {
             current <- textual[[i]]
             nt <- add_query_parameter(env, current[[1]])
-            if (isTRUE(attr(current, "partial"))) {
+            if (isTRUE(current$partial)) {
                 match.str <- paste0("tokens.token LIKE :", nt) 
             } else {
                 match.str <- paste0("tokens.token = :", nt) 
             }
 
-            field <- attr(current, "field")
+            field <- current$field
             if (is.null(field)) {
                 textual[[i]] <- match.str
             } else {
@@ -250,14 +260,9 @@ build_query <- function(query, name, env) {
         }
     }
 
-    # Everything else needs to be processed separately, I'm afraid.
+    # All non-text children to be processed as separate subqueries, I'm afraid.
     if (!all(is.text)) {
-        out <- c(out, vapply(query[!is.text], build_query, name=name, env=env, ""))
+        out <- c(out, vapply(query$children[!is.text], build_query, name=name, env=env, ""))
     }
-
-    if (length(out) > 1) {
-        return(paste0("(", paste(out, collapse=" OR "), ")"))
-    } else {
-        return(out[[1]])
-    }
+    paste0("(", paste(out, collapse=" OR "), ")")
 }

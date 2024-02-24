@@ -64,15 +64,12 @@ test_that("searchMetadataText works for text searches", {
     expect_identical(out$path, c("mikoto.txt", "mitsuko.txt", "kuroko.txt", "misaki.txt"))
 
     # Partial matching works correctly.
-    query <- list("mi%")
-    attr(query, "partial") <- TRUE
+    query <- defineTextQuery("Mi%", partial=TRUE)
     out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("mikoto.txt", "mitsuko.txt", "misaki.txt"))
 
     # Field-specific matching works correctly.
-    query <- list("sa%")
-    attr(query, "partial") <- TRUE
-    attr(query, "field") <- "last_name" 
+    query <- defineTextQuery("sa%", partial=TRUE, field="last_name")
     out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("ruiko.txt"))
 })
@@ -83,88 +80,72 @@ test_that("searchMetadataText works for AND searches", {
     expect_identical(out$path, "kazari.txt")
 
     # We can also be more explicit.
-    query <- list(list("rank"), list("male"))
-    attr(query, "type") <- "and"
+    query <- defineTextQuery("rank") & defineTextQuery("male")
     out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, "accelerator.txt")
 
     # Nested ANDs are handled properly.
-    query <- list("s%")
-    attr(query, "partial") <- TRUE
-    query <- list(list("tokiwadai"), query)
-    attr(query, "type") <- "and"
-    query <- list(query, "judgement")
-    attr(query, "type") <- "and"
+    query <- (defineTextQuery("s%", partial=TRUE) & defineTextQuery("tokiwadai")) & defineTextQuery("judgement")
     out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, "kuroko.txt")
 })
 
 test_that("searchMetadataText works for OR searches", {
-    query <- list("uiharu", "rank")
-    attr(query, "type") <- "or"
+    query <- defineTextQuery("uiharu") | defineTextQuery("rank")
     out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("mikoto.txt", "misaki.txt", "kazari.txt", "accelerator.txt"))
 
     # ORs work correctly with partial matches.
-    query <- list(list("mi%"), "judgement")
-    attr(query[[1]], "partial") <- TRUE
-    attr(query, "type") <- "or"
+    query <- defineTextQuery("judgement") | defineTextQuery("Mi%", partial=TRUE)
     out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("mikoto.txt", "mitsuko.txt", "kuroko.txt", "misaki.txt", "kazari.txt"))
 
     # ORs work correctly with field matches.
-    query <- list(list("mi%"), "judgement")
-    attr(query[[1]], "partial") <- TRUE
-    attr(query[[1]], "field") <- "last_name"
-    attr(query, "type") <- "or"
+    query <- defineTextQuery("mi%", partial=TRUE, field="last_name") | defineTextQuery("judgement")
     out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("mikoto.txt", "kuroko.txt", "kazari.txt"))
 
     # Nested ORs are collapsed properly.
-    query <- list("teleport", "aerohand")
-    attr(query, "type") <- "or"
-    query <- list(query, "mental")
-    attr(query, "type") <- "or"
+    query <- (defineTextQuery("teleport") | defineTextQuery("aerohand")) | defineTextQuery("mental")
     out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("mitsuko.txt", "kuroko.txt", "misaki.txt"))
 })
 
 test_that("searchMetadataText works with combined AND and OR searches", {
     # OR that contains an AND.
-    query <- list("judgement", "sakugawa")
-    attr(query, "type") <- "and"
-    query <- list(query, "aerohand", "vector")
-    attr(query, "type") <- "or"
+    query <- (defineTextQuery("judgement") & defineTextQuery("sakugawa")) | defineTextQuery("aerohand") | defineTextQuery("vector")
     out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("mitsuko.txt", "kazari.txt", "accelerator.txt"))
 
     # OR that contains multiple ANDs.
-    query <- list("judgement", "sakugawa")
-    attr(query, "type") <- "and"
-    query2 <- list("female", "rank")
-    attr(query2, "type") <- "and"
-    query <- list(query, query2)
-    attr(query, "type") <- "or"
+    query <- (defineTextQuery("judgement") & defineTextQuery("sakugawa")) | (defineTextQuery("female") & defineTextQuery("rank"))
     out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("mikoto.txt", "misaki.txt", "kazari.txt"))
 
     # AND that contains an OR.
-    query <- list("shokuhou", "kongou")
-    attr(query, "type") <- "or"
-    query <- list(query, "rank")
-    attr(query, "type") <- "and"
+    query <- defineTextQuery("rank") & (defineTextQuery("shokuhou") | defineTextQuery("kongou"))
     out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("misaki.txt"))
 
     # AND that contains multiple ORs.
-    query1 <- list("rank", "judgement")
-    attr(query1, "type") <- "or"
-    query2 <- list("male", "teleport")
-    attr(query2, "type") <- "or"
-    query <- list(query1, query2)
-    attr(query, "type") <- "and"
+    query <- (defineTextQuery("rank") | defineTextQuery("judgement")) & (defineTextQuery("male") | defineTextQuery("teleport"))
     out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("kuroko.txt", "accelerator.txt"))
+})
+
+test_that("searchMetadataText works with ill-defined filters", {
+    # We return everything.
+    out <- searchMetadataText(tmp, "     ", include.metadata=FALSE, latest=FALSE)
+    expect_identical(nrow(out), 7L)
+
+    # Ill-defined filters are ignored in boolean operations.
+    query <- defineTextQuery("female") & defineTextQuery("    ")
+    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+    expect_identical(nrow(out), 6L)
+
+    query <- defineTextQuery("male") | defineTextQuery("    ")
+    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+    expect_identical(nrow(out), 1L)
 })
 
 test_that("searchMetadataText respects the other output options", {
