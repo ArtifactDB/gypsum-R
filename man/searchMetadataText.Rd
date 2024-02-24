@@ -3,7 +3,7 @@
 \name{searchMetadataText}
 \alias{searchMetadataText}
 \alias{searchMetadataTextFilter}
-\title{Search a metadata database}
+\title{Text search on the metadata database}
 \usage{
 searchMetadataText(path, query, latest = TRUE, include.metadata = TRUE)
 
@@ -24,6 +24,7 @@ searchMetadataTextFilter(query, pid.name = "paths.pid")
 For \code{searchMetadataText}, a data frame specifying the contaning the search results.
 \itemize{
 \item The \code{project}, \code{asset} and \code{version} columns contain the identity of the version with matching metadata.
+\item The \code{path} column contains the path to the metadata document within the version prefix.
 \item If \code{include.metadata=TRUE}, a \code{metadata} column is present with the nested metadata for each match.
 \item If \code{latest=TRUE}, a \code{latest} column is present indicating whether the matching version is the latest for its asset.
 Otherwise, only the latest version is returned.
@@ -34,8 +35,9 @@ and \code{parameters}, the parameter bindings to be used in \code{where}.
 The return value may also be \code{NULL} if the query has no well-defined filter.
 }
 \description{
-Perform a string search on a SQLite database containing metadata from the gypsum backend
-(see \url{https://github.com/ArtifactDB/bioconductor-metadata-index} for the table structure).
+Perform a text search on a SQLite database containing metadata from the gypsum backend.
+This is based on a precomputed tokenization of all string properties in each metadata document;
+see \url{https://github.com/ArtifactDB/bioconductor-metadata-index} for details.
 }
 \details{
 When \code{query} is a list, the SQL filter expression is constructed using the following rules:
@@ -85,7 +87,7 @@ searchMetadataText(path, query, include.metadata=FALSE)
 \seealso{
 \code{\link{fetchMetadataDatabase}}, to download and cache the database files.
 
-\url{https://github.com/ArtifactDB/bioconductor-metadata-index}, for details on the SQLite file contents.
+\url{https://github.com/ArtifactDB/bioconductor-metadata-index}, for details on the SQLite file contents and table structure.
 }
 \author{
 Aaron Lun

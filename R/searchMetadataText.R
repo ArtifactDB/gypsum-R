@@ -1,7 +1,8 @@
-#' Search a metadata database
+#' Text search on the metadata database
 #'
-#' Perform a string search on a SQLite database containing metadata from the gypsum backend
-#' (see \url{https://github.com/ArtifactDB/bioconductor-metadata-index} for the table structure).
+#' Perform a text search on a SQLite database containing metadata from the gypsum backend.
+#' This is based on a precomputed tokenization of all string properties in each metadata document;
+#' see \url{https://github.com/ArtifactDB/bioconductor-metadata-index} for details.
 #'
 #' @param query List or character vector specifying the query to execute, see Details.
 #' @param path String containing a path to a SQLite file, usually obtained via \code{\link{fetchMetadataDatabase}}.
@@ -13,6 +14,7 @@
 #' For \code{searchMetadataText}, a data frame specifying the contaning the search results.
 #' \itemize{
 #' \item The \code{project}, \code{asset} and \code{version} columns contain the identity of the version with matching metadata.
+#' \item The \code{path} column contains the path to the metadata document within the version prefix.
 #' \item If \code{include.metadata=TRUE}, a \code{metadata} column is present with the nested metadata for each match.
 #' \item If \code{latest=TRUE}, a \code{latest} column is present indicating whether the matching version is the latest for its asset.
 #' Otherwise, only the latest version is returned.
@@ -54,7 +56,7 @@
 #' @seealso
 #' \code{\link{fetchMetadataDatabase}}, to download and cache the database files.
 #'
-#' \url{https://github.com/ArtifactDB/bioconductor-metadata-index}, for details on the SQLite file contents.
+#' \url{https://github.com/ArtifactDB/bioconductor-metadata-index}, for details on the SQLite file contents and table structure.
 #' 
 #' @examples
 #' path <- fetchMetadataDatabase()
