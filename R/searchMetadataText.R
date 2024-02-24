@@ -137,7 +137,7 @@ sanitize_query <- function(query) {
     if (!is.null(qt)) {
         out <- lapply(query, sanitize_query)
 
-        # Folding all associative operations into a single layer to reduce the nesting of subqueries.
+        # Collapse AND/ORs into a single layer to reduce nesting of subqueries.
         can.merge <- vapply(out, function(x) identical(attr(x, "type"), qt), TRUE)
         out <- c(unlist(out[can.merge], recursive=FALSE), out[!can.merge])
 

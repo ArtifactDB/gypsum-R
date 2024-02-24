@@ -22,7 +22,9 @@ Suggests:
     testthat,
     BiocStyle,
     digest,
-    jsonvalidate
+    jsonvalidate,
+    DBI,
+    RSQLite
 RoxygenNote: 7.3.1
 VignetteBuilder: knitr
 URL: https://github.com/ArtifactDB/gypsum-R
