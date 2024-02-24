@@ -2,38 +2,26 @@
 % Please edit documentation in R/searchMetadataText.R
 \name{searchMetadataText}
 \alias{searchMetadataText}
+\alias{searchMetadataTextFilter}
 \title{Search a metadata database}
 \usage{
-searchMetadataText(
-  query,
-  latest = TRUE,
-  include.metadata = TRUE,
-  where.only = FALSE,
-  pid.name = "paths.pid",
-  name = "bioconductor.sqlite3",
-  cache = cacheDirectory(),
-  overwrite = FALSE
-)
+searchMetadataText(path, query, latest = TRUE, include.metadata = TRUE)
+
+searchMetadataTextFilter(query, pid.name = "paths.pid")
 }
 \arguments{
+\item{path}{String containing a path to a SQLite file, usually obtained via \code{\link{fetchMetadataDatabase}}.}
+
 \item{query}{List or character vector specifying the query to execute, see Details.}
 
-\item{latest}{Logical scalar indicating whether to only search for matches within the latest version of each asset.
-Ignored if \code{where.only=TRUE}.}
+\item{latest}{Logical scalar indicating whether to only search for matches within the latest version of each asset.}
 
-\item{include.metadata}{Logical scalar indicating whether metadata should be returned.
-Ignored if \code{where.only=TRUE}.}
+\item{include.metadata}{Logical scalar indicating whether metadata should be returned.}
 
-\item{where.only}{Logical scalar indicating whether to return the WHERE filter condition.
-Intended to help developers in assembling their own SQL queries involving a token search.}
-
-\item{pid.name}{String containing the name of the column of the \code{paths} table that contains the path ID.
-Only used if \code{where.only=TRUE}.}
-
-\item{name, cache, overwrite}{Further arguments to pass to \code{\link{fetchMetadataDatabase}}.}
+\item{pid.name}{String containing the name/alias of the column of the \code{paths} table that contains the path ID.}
 }
 \value{
-If \code{where.only=FALSE}, a data frame specifying the contaning the results of the query.
+For \code{searchMetadataText}, a data frame specifying the contaning the search results.
 \itemize{
 \item The \code{project}, \code{asset} and \code{version} columns contain the identity of the version with matching metadata.
 \item If \code{include.metadata=TRUE}, a \code{metadata} column is present with the nested metadata for each match.
@@ -41,28 +29,63 @@ If \code{where.only=FALSE}, a data frame specifying the contaning the results of
 Otherwise, only the latest version is returned.
 }
 
-If \code{where.only=TRUE}, a list containing \code{where}, a string can be directly used as a WHERE filter condition;
+For \code{searchMetadataTextFilter}, a list containing \code{where}, a string can be directly used as a WHERE filter condition in a SQL SELECT statement;
 and \code{parameters}, the parameter bindings to be used in \code{where}.
 The return value may also be \code{NULL} if the query has no well-defined filter.
 }
 \description{
 Perform a string search on a SQLite database containing metadata from the gypsum backend
-(see \url{https://github.com/ArtifactDB/bioconductor-metadata-index}).
+(see \url{https://github.com/ArtifactDB/bioconductor-metadata-index} for the table structure).
+}
+\details{
+When \code{query} is a list, the SQL filter expression is constructed using the following rules:
+\itemize{
+\item If \code{query} has a \code{type} attribute set to \code{"and"}, it represents a boolean AND operation.
+Each item of \code{query} should be a nested list representing a subquery; all subqueries must match.
+\item If \code{query} has a \code{type} attribute set to \code{"or"}, it represents a boolean OR operation.
+Each item of \code{query} should be a nested list representing a subquery; at least one subquery must match.
+\item If \code{query} does not have a \code{type} attribute, it represents a query on a text string.
+\code{query} itself should contain a single character vector of length 1, representing the string to be matched.
+\itemize{
+\item If \code{query} has a \code{partial} attribute set to \code{TRUE}, the string is directly used for a wildcard match to the token in the database.
+This expects SQLite's \code{\%} and \code{_} wildcards.
+\item Otherwise, the string is tokenized and used for equality comparison to tokens in the database.
+If tokenization yields multiple tokens from the string, all tokens must have matches in the database for the text to be considered as matched.
+\item Additionally, \code{query} may have a \code{field} attribute, restricting the token matches to a particular metadata field.
+If this is not present, the search for matching tokens is performed across all available metadata fields.
+}
+}
+
+Each string is tokenized by converting it to lower case and splitting it on characters that are not Unicode letters/numbers or a dash.
+We currently do not remove diacritics so these will need to be converted to ASCII by the user. 
+If a text query involves only non-letter/number/dash characters, the filter will not be well-defined and will be ignored when constructing SQL statements.
+
+For convenience, any list inside \code{query} (or indeed, \code{query} itself) may be replaced by a non-empty character vector.
+A character vector of length 1 is treated as shorthand for a text query with no \code{partial} or \code{field} attributes.
+A character vector of length greater than 1 is treated as shorthand for an AND operation on text queries for each of the individual strings.
 }
 \examples{
-searchMetadataText(c("GRCm38", "brain"), include.metadata=FALSE)
+path <- fetchMetadataDatabase()
+searchMetadataText(path, c("mouse", "brain"), include.metadata=FALSE)
 
 # Now for a slightly more complex query:
 tissue.query <- list("brain", "pancreas")
 attr(tissue.query, "type") <- "or"
-genome.query <- list("GRCm38")
-attr(genome.query, "field") <- "genome"
-query <- list(tissue.query, genome.query)
+species.query <- list("10090")
+attr(species.query, "field") <- "taxonomy_id"
+query <- list(tissue.query, species.query)
 attr(query, "type") <- "and"
-searchMetadataText(query, include.metadata=FALSE)
+searchMetadataText(path, query, include.metadata=FALSE)
+
+# Throwing in some wildcards.
+query <- list("neuro\%")
+attr(query, "partial") <- TRUE
+searchMetadataText(path, query, include.metadata=FALSE)
 }
 \seealso{
 \code{\link{fetchMetadataDatabase}}, to download and cache the database files.
+
+\url{https://github.com/ArtifactDB/bioconductor-metadata-index}, for details on the SQLite file contents.
 }
 \author{
 Aaron Lun
