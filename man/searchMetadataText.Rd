@@ -4,10 +4,13 @@
 \alias{searchMetadataText}
 \alias{gypsum.search.clause}
 \alias{Ops.gypsum.search.clause}
+\alias{defineTextQuery}
 \alias{searchMetadataTextFilter}
 \title{Text search on the metadata database}
 \usage{
 searchMetadataText(path, query, latest = TRUE, include.metadata = TRUE)
+
+defineTextQuery(text, field = NULL, partial = FALSE)
 
 searchMetadataTextFilter(query, pid.name = "paths.pid")
 }
@@ -21,8 +24,6 @@ Alternatively, a \code{gypsum.search.object} produced by \code{defineTextQuery}.
 
 \item{include.metadata}{Logical scalar indicating whether metadata should be returned.}
 
-\item{pid.name}{String containing the name/alias of the column of the \code{paths} table that contains the path ID.}
-
 \item{text}{String containing the text to query on.
 This will be automatically tokenized, see Details.}
 
@@ -31,6 +32,8 @@ If \code{NULL}, the search is performed on all available metadata fields.}
 
 \item{partial}{Logical scalar indicating whether \code{text} contains SQLite wildcards (\code{\%}, \code{_}) for a partial search.
 If \code{TRUE}, the wildcards are preserved during tokenization.}
+
+\item{pid.name}{String containing the name/alias of the column of the \code{paths} table that contains the path ID.}
 }
 \value{
 For \code{searchMetadataText}, a data frame specifying the contaning the search results.

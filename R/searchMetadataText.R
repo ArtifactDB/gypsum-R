@@ -102,6 +102,7 @@ searchMetadataText <- function(path, query, latest=TRUE, include.metadata=TRUE) 
 }
 
 #' @export
+#' @rdname searchMetadataText
 defineTextQuery <- function(text, field=NULL, partial=FALSE) {
     output <- list(type="text", text=text, field=field, partial=partial)
     class(output) <- "gypsum.search.clause"
