@@ -8,7 +8,7 @@ test_that("prepareDirectoryUpload works as expected", {
     write(file=file.path(dest, "heanna"), "sumire")
 
     prepped <- prepareDirectoryUpload(dest, cache=cache)
-    if (.Platform$OS.type == "windows") {
+    if (.Platform$OS.type == "windows") { # because windows doesn't have guaranteed support for symbolic links.
         expect_identical(prepped$files, c("blah.txt", "foo/bar.txt", "heanna"))
         expect_identical(nrow(prepped$links), 0L)
     } else {
@@ -26,7 +26,7 @@ test_that("prepareDirectoryUpload works as expected", {
 })
 
 test_that("prepareDirectoryUpload works with some odd things", {
-    skip_on_os("windows")
+    skip_on_os("windows") # giving up on flaky support for symbolic links on Windows.
 
     cache <- tempfile()
     dest <- tempfile()
@@ -47,7 +47,7 @@ test_that("prepareDirectoryUpload works with some odd things", {
 })
 
 test_that("prepareDirectoryUpload handles dangling links correctly", {
-    skip_on_os("windows")
+    skip_on_os("windows") # giving up on flaky support for symbolic links on Windows.
 
     cache <- tempfile()
     dest <- tempfile()
