@@ -7,15 +7,21 @@ test_that("cloneVersion works as expected with existing files", {
     out <- cloneVersion("test-R", "basic", "v1", destination=dest, cache=cache)
 
     l1 <- Sys.readlink(file.path(dest, "blah.txt"))
-    expect_true(endsWith(l1, "test-R/basic/v1/blah.txt"))
     expect_true(file.exists(l1))
+    if (.Platform$OS.type != "windows") { # as windows might not support symbolic links.
+        expect_true(endsWith(l1, "test-R/basic/v1/blah.txt"))
+    }
 
     l2 <- Sys.readlink(file.path(dest, "foo/bar.txt"))
-    expect_true(endsWith(l2, "test-R/basic/v1/foo/bar.txt"))
     expect_true(file.exists(l2))
+    if (.Platform$OS.type != "windows") {
+        expect_true(endsWith(l2, "test-R/basic/v1/foo/bar.txt"))
+    }
 })
 
 test_that("cloneVersion happily works without any download", {
+    skip_on_os("windows") # download=FALSE can't work on windows if symbolic links aren't available.
+
     cache <- tempfile()
     dest <- tempfile()
     out <- cloneVersion("test-R", "basic", "v1", download=FALSE, destination=dest, cache=cache)
@@ -30,6 +36,8 @@ test_that("cloneVersion happily works without any download", {
 })
 
 test_that("cloneVersion works correctly if version itself contains links", {
+    skip_on_os("windows") # download=FALSE can't work on windows if symbolic links aren't available.
+
     cache <- tempfile()
     dest <- tempfile()
     out <- cloneVersion("test-R", "basic", "v2", destination=dest, cache=cache, download=FALSE, relink=FALSE)

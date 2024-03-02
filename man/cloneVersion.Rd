@@ -58,6 +58,10 @@ Advanced users can set \code{download=FALSE}, in which case symlinks are created
 In such cases, \code{destination} should be treated as write-only due to the potential presence of dangling symlinks.
 This mode is useful for uploading a new version of an asset without downloading the files from the existing version,
 assuming that the modifications associated with the former can be achieved without reading any of the latter.
+
+On Windows, the user may not have permissions to create symbolic links, so the function will transparently fall back to creating hard links or copies instead.
+This precludes any optimization by \code{\link{prepareDirectoryUpload}} as the hard links/copies cannot be converted into upload links.
+It also assumes that \code{download=TRUE} as dangling links/copies cannot be created.
 }
 \examples{
 tmp <- tempfile()

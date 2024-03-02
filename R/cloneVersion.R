@@ -34,6 +34,10 @@
 #' This mode is useful for uploading a new version of an asset without downloading the files from the existing version,
 #' assuming that the modifications associated with the former can be achieved without reading any of the latter.
 #'
+#' On Windows, the user may not have permissions to create symbolic links, so the function will transparently fall back to creating hard links or copies instead.
+#' This precludes any optimization by \code{\link{prepareDirectoryUpload}} as the hard links/copies cannot be converted into upload links.
+#' It also assumes that \code{download=TRUE} as dangling links/copies cannot be created.
+#'
 #' @author Aaron Lun
 #'
 #' @seealso
@@ -70,7 +74,23 @@ cloneVersion <- function(project, asset, version, destination, download=TRUE, ca
     for (x in names(listing)) {
         dpath <- file.path(destination, x)
         dir.create(dirname(dpath), showWarnings=FALSE)
-        file.symlink(file.path(final.cache, x), dpath)
+        target <- file.path(final.cache, x)
+        file.symlink(target, dpath)
+
+        # It's perfectly acceptable to create dangling links, so we can't use
+        # the output of file.symlink to check success. We also can't use
+        # file.exists as this attempts to follow symbolic links.
+        link.exists <- basename(dpath) %in% list.files(dirname(dpath), all.files=TRUE)
+        if (!link.exists) {
+            if (.Platform$OS.type != "windows") {
+                stop("failed to create a symbolic link to '", target, "' at '", dpath, "'")
+            } else if (!file.link(target, dpath) && !file.copy(target, dpath)) {
+                # Of course Windows has its own little shenanigans whereby
+                # symbolic links aren't supported, so we have to smoothly fall
+                # back to hard links/copies instead.
+                stop("failed to create a hard link to '", target, "' at '", dpath, "'")
+            }
+        }
     }
 
     invisible(NULL)
