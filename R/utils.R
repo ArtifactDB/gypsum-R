@@ -135,8 +135,8 @@ list_for_prefix <- function(prefix, url) {
 
     req <- request(url)
     req <- req_error(req, body = function(res) resp_body_json(res)$reason)
-    res <- req_perform(req, path=tmp)
-    out <- req_body_json(res)
+    res <- req_perform(req)
+    out <- resp_body_json(res)
 
     out <- out[endsWith(out, "/")]
     if (!is.null(prefix)) {

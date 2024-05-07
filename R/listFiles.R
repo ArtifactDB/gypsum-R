@@ -29,8 +29,8 @@ listFiles <- function(project, asset, version, prefix=NULL, include..=TRUE, url=
 
     req <- request(paste0(url, "/list?prefix=", uenc(actual.prefix), "&recursive=true"))
     req <- req_error(req, body = function(res) resp_body_json(res)$reason)
-    res <- req_perform(req, path=tmp)
-    out <- req_body_json(res)
+    res <- req_perform(req)
+    out <- resp_body_json(res)
 
     out <- substr(out, truncator, nchar(out))
     if (!include..) {

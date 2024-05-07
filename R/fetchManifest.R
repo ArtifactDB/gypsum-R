@@ -31,7 +31,7 @@ fetchManifest <- function(project, asset, version, cache=cacheDirectory(), overw
        version, 
        "..manifest", 
        url=url,
-       config=config, 
+       cache=cache,
        overwrite=overwrite
     )
 }
