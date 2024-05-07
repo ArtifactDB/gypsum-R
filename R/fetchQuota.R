@@ -19,7 +19,6 @@
 #' \code{\link{setQuota}}, to set the quota details.
 #'
 #' @export
-#' @importFrom jsonlite fromJSON
 fetchQuota <- function(project, url=restUrl(), config=NULL) {
-    get_file(paste(project, "..quota", sep="/"), url=url)
+    get_json(paste(project, "..quota", sep="/"), url=url)
 }

@@ -34,9 +34,8 @@
 #' fetchPermissions("test-R")
 #'
 #' @export
-#' @importFrom jsonlite fromJSON
 fetchPermissions <- function(project, url=restUrl(), config=NULL) {
-    perms <- get_file(paste0(project, "/..permissions"), url=url)
+    perms <- get_json(paste0(project, "/..permissions"), url=url)
 
     # Converting everything to POSIX dates.
     for (i in seq_along(perms$uploaders)) {
