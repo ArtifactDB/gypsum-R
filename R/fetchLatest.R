@@ -4,7 +4,7 @@
 #' 
 #' @param project String containing the project name.
 #' @param asset String containing the asset name.
-#' @param config Configuration object for the S3 bucket, see \code{\link{publicS3Config}} for details.
+#' @param config Ignored.
 #'
 #' @return String containing the latest version of the project.
 #'
@@ -17,13 +17,7 @@
 #' \code{\link{refreshLatest}}, to refresh the latest version.
 #'
 #' @export
-#' @importFrom jsonlite fromJSON
-fetchLatest <- function(project, asset, config=publicS3Config()) {
-    out <- get_file(paste(project, asset, "..latest", sep="/"), config=config) 
-    msg <- rawToChar(out)
-    if (grepl("^<", msg)) {
-        stop(msg)
-    }
-    vers <- fromJSON(msg, simplifyVector=FALSE)
+fetchLatest <- function(project, asset, url=restUrl(), config=NULL) { 
+    vers <- get_json(paste(project, asset, "..latest", sep="/"), url=url)
     vers$version
 }

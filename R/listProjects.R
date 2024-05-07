@@ -2,6 +2,7 @@
 #'
 #' List all projects in the gypsum backent.
 #'
+#' @param url String containing the URL of the gypsum REST API.
 #' @param config Configuration object for the S3 bucket, see \code{\link{publicS3Config}} for details.
 #'
 #' @author Aaron Lun
@@ -14,6 +15,6 @@
 #' }
 #' 
 #' @export
-listProjects <- function(config=publicS3Config()) {
-    list_for_prefix(NULL, config=config)
+listProjects <- function(url=restUrl(), config=NULL) {
+    list_for_prefix(NULL, url=url)
 }

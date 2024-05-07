@@ -33,32 +33,17 @@ sanitize_uploaders <- function(uploaders) {
     uploaders
 }
 
-#' @importFrom paws.storage s3
-create_s3 <- function(config) {
-    s3(
-        endpoint=config$endpoint, 
-        region="auto",
-        credentials=list(
-            creds=list(
-                access_key_id=config$key, 
-                secret_access_key=config$secret
-            )
-        )
-    )
+#' @import httr2
+get_json <- function(path, url) {
+    req <- request(paste0(url, "/file/", uenc(path)))
+    req <- req_error(req, body = function(res) resp_body_json(res)$reason)
+    res <- req_perform(req)
+    resp_body_json(res)
 }
 
-get_file <- function(path, config) {
-    s <- create_s3(config)
-    tryCatch(
-        (s$get_object(config$bucket, Key=path))$Body,
-        error=function(e) stop("failed to retrieve '", path, "'; ", e$message)
-    )
-}
-
-save_file <- function(path, destination, overwrite, config, error=TRUE) {
+save_file <- function(path, destination, overwrite, url, error=TRUE) {
     if (overwrite || !file.exists(destination)) {
         dir.create(dirname(destination), recursive=TRUE, showWarnings=FALSE)
-        s <- create_s3(config)
 
         # We use a write-and-rename approach to avoid problems with interrupted
         # downloads that make it seem as if the cache is populated.
@@ -66,7 +51,11 @@ save_file <- function(path, destination, overwrite, config, error=TRUE) {
         on.exit(unlink(tmp), add=TRUE, after=FALSE)
 
         status <- tryCatch(
-            s$download_file(config$bucket, Key=path, Filename=tmp),
+            {
+                req <- request(paste0(url, "/file/", uenc(path)))
+                req <- req_error(req, body = function(res) resp_body_json(res)$reason)
+                res <- req_perform(req, path=tmp)
+            },
             error=function(e) e$message
         )
 
@@ -95,28 +84,25 @@ download_and_rename_file <- function(url, dest) {
     # Using the usual write-and-rename strategy.
     tmp <- tempfile(tmpdir=dirname(dest))
     on.exit(unlink(tmp), add=TRUE, after=FALSE)
-
     req <- request(url)
     req_perform(req, path=tmp)
-
     rename_file(tmp, dest)
 }
 
 BUCKET_CACHE_NAME <- 'bucket'
 
 #' @importFrom jsonlite fromJSON
-get_cacheable_json <- function(project, asset, version, path, cache, config, overwrite) {
+get_cacheable_json <- function(project, asset, version, path, cache, url, overwrite) {
     bucket_path <- paste(project, asset, version, path, sep="/")
     if (is.null(cache)) {
-        out <- get_file(bucket_path, config=config) 
-        out <- rawToChar(out)
+        get_json(bucket_path, url=url)
     } else {
         out <- file.path(cache, BUCKET_CACHE_NAME, project, asset, version, path)
         acquire_lock(cache, project, asset, version)
         on.exit(release_lock(project, asset, version), add=TRUE, after=FALSE)
-        save_file(bucket_path, destination=out, overwrite=overwrite, config=config)
+        save_file(bucket_path, destination=out, overwrite=overwrite, url=url)
+        fromJSON(out, simplifyVector=FALSE)
     }
-    fromJSON(out, simplifyVector=FALSE)
 }
 
 is.locked <- new.env()
@@ -141,20 +127,18 @@ release_lock <- function(project, asset, version) {
     }
 }
 
-list_for_prefix <- function(prefix, config) {
-    s <- create_s3(config)
-
-    token <- NULL
-    out <- character()
-    while (TRUE) {
-        listing <- s$list_objects_v2(config$bucket, Prefix=prefix, Delimiter="/", ContinuationToken=token)
-        out <- c(out, unlist(listing$CommonPrefixes, use.names=FALSE))
-        if (!listing$IsTruncated) {
-            break
-        }
-        token <- listing$NextContinuationToken
+list_for_prefix <- function(prefix, url) {
+    url <- paste0(url, "/list")
+    if (!is.null(prefix)) {
+        url <- paste0(url, "?prefix=", uenc(prefix))
     }
 
+    req <- request(url)
+    req <- req_error(req, body = function(res) resp_body_json(res)$reason)
+    res <- req_perform(req, path=tmp)
+    out <- req_body_json(res)
+
+    out <- out[endsWith(out, "/")]
     if (!is.null(prefix)) {
         out <- substr(out, nchar(prefix) + 1L, nchar(out) - 1L)
     } else {

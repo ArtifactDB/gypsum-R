@@ -9,7 +9,8 @@
 #' If provided, a file is only listed if its object key starts with \code{{project}/{asset}/{version}/{prefix}}.
 #' If \code{NULL}, all files associated with this version of the asset are listed.
 #' @param include.. Logical scalar indicating whether to list files with \code{/..} in their object keys.
-#' @param config Configuration object for the S3 bucket, see \code{\link{publicS3Config}} for details.
+#' @param url String containing the URL of the gypsum REST API.
+#' @param config Deprecated and ignored.
 #'
 #' @author Aaron Lun
 #'
@@ -19,25 +20,17 @@
 #' listFiles("test-R", "basic", "v1")
 #' 
 #' @export
-listFiles <- function(project, asset, version, prefix=NULL, include..=TRUE, config=publicS3Config()) {
+listFiles <- function(project, asset, version, prefix=NULL, include..=TRUE, url=restUrl(), config=NULL) {
     actual.prefix <- paste(project, asset, version, "", sep="/") # empty string to force trailing slash.
     truncator <- nchar(actual.prefix) + 1L
     if (!is.null(prefix)) {
         actual.prefix <- paste0(actual.prefix, prefix)
     }
 
-    s <- create_s3(config)
-
-    token <- NULL
-    out <- character()
-    while (TRUE) {
-        listing <- s$list_objects_v2(config$bucket, Prefix=actual.prefix, ContinuationToken=token)
-        out <- c(out, unlist(lapply(listing$Contents, function(x) x$Key), use.names=FALSE))
-        if (!listing$IsTruncated) {
-            break
-        }
-        token <- listing$NextContinuationToken
-    }
+    req <- request(paste0(url, "/list?prefix=", uenc(actual.prefix), "&recursive=true"))
+    req <- req_error(req, body = function(res) resp_body_json(res)$reason)
+    res <- req_perform(req, path=tmp)
+    out <- req_body_json(res)
 
     out <- substr(out, truncator, nchar(out))
     if (!include..) {

@@ -13,7 +13,6 @@ Imports:
     tools,
     httr2,
     jsonlite,
-    paws.storage,
     parallel,
     filelock
 Suggests:
