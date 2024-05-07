@@ -1,6 +1,6 @@
 Package: gypsum
-Version: 0.99.18
-Date: 2024-04-19
+Version: 1.1.0
+Date: 2024-04-25
 Title: Interface to the gypsum REST API
 Description:
     Client for the gypsum REST API (https://gypsum.artifactdb.com), a cloud-based file store in the ArtifactDB ecosystem.
@@ -23,7 +23,9 @@ Suggests:
     digest,
     jsonvalidate,
     DBI,
-    RSQLite
+    RSQLite,
+    S4Vectors,
+    methods
 RoxygenNote: 7.3.1
 VignetteBuilder: knitr
 URL: https://github.com/ArtifactDB/gypsum-R
