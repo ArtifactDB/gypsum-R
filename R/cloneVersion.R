@@ -10,7 +10,8 @@
 #' @param download Logical scalar indicating whether the version's files should be downloaded first.
 #' This can be set to \code{FALSE} to create a clone without actually downloading any of the version's files.
 #' @param cache String containing the path to the cache directory.
-#' @param config Configuration object for the S3 bucket, see \code{\link{publicS3Config}} for details.
+#' @param url String containing the URL of the gypsum REST API.
+#' @param config Deprecated and ignored.
 #' @param ... Further arguments to pass to \code{\link{saveVersion}}.
 #' Only used if \code{download=TRUE}.
 #'
@@ -57,13 +58,13 @@
 #' # Symlinks are converted to upload links:
 #' prepareDirectoryUpload(tmp)
 #' @export
-cloneVersion <- function(project, asset, version, destination, download=TRUE, cache=cacheDirectory(), config=publicS3Config(cache=cache), ...) {
+cloneVersion <- function(project, asset, version, destination, download=TRUE, cache=cacheDirectory(), url=restUrl(), config=NULL, ...) {
     if (download) {
-        saveVersion(project, asset, version, cache=cache, config=config, ...)
+        saveVersion(project, asset, version, cache=cache, url=url, ...)
     }
 
     final.cache <- file.path(cache, BUCKET_CACHE_NAME, project, asset, version)
-    listing <- fetchManifest(project, asset, version, cache=cache, config=config)
+    listing <- fetchManifest(project, asset, version, cache=cache, url=url)
     dir.create(destination, recursive=TRUE, showWarnings=FALSE)
 
     # Only run this after the manifest has been fetched,

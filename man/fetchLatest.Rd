@@ -4,14 +4,14 @@
 \alias{fetchLatest}
 \title{Fetch the latest version}
 \usage{
-fetchLatest(project, asset, config = publicS3Config())
+fetchLatest(project, asset, url = restUrl(), config = NULL)
 }
 \arguments{
 \item{project}{String containing the project name.}
 
 \item{asset}{String containing the asset name.}
 
-\item{config}{Configuration object for the S3 bucket, see \code{\link{publicS3Config}} for details.}
+\item{config}{Ignored.}
 }
 \value{
 String containing the latest version of the project.

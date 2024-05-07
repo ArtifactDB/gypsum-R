@@ -6,7 +6,8 @@
 #' @param asset String containing the asset name.
 #' @param version String containing the version name.
 #' @param cache String containing the path to the cache directory.
-#' @param config Configuration object for the S3 bucket, see \code{\link{publicS3Config}} for details.
+#' @param url String containing the URL of the gypsum REST API.
+#' @param config Deprecated and ignored.
 #' @param overwrite Logical scalar indicating whether to overwrite existing files in the cache.
 #' If \code{FALSE} and the files already exist in \code{cache}, the download is skipped.
 #' @param concurrent Integer specifying the number of concurrent downloads.
@@ -26,7 +27,7 @@
 #' list.files(out, recursive=TRUE, all.files=TRUE)
 #' 
 #' @export
-saveVersion <- function(project, asset, version, cache=cacheDirectory(), overwrite=FALSE, relink=TRUE, concurrent=1, config=publicS3Config(cache=cache)) {
+saveVersion <- function(project, asset, version, cache=cacheDirectory(), overwrite=FALSE, relink=TRUE, concurrent=1, url=restUrl(), config=NULL) {
     acquire_lock(cache, project, asset, version)
     on.exit(release_lock(project, asset, version), add=TRUE, after=FALSE)
     destination <- file.path(cache, BUCKET_CACHE_NAME, project, asset, version)
@@ -35,13 +36,13 @@ saveVersion <- function(project, asset, version, cache=cacheDirectory(), overwri
     completed <- file.path(cache, "status", project, asset, version, "COMPLETE")
 
     if (!file.exists(completed) || overwrite) {
-        listing <- listFiles(project, asset, version, config=config)
+        listing <- listFiles(project, asset, version, url=url)
         FUN <- function(x) {
             save_file(
                 path=paste(project, asset, version, x, sep="/"), 
                 destination=file.path(destination, x), 
                 overwrite=overwrite, 
-                config=config
+                url=url
             )
         }
 
@@ -54,7 +55,7 @@ saveVersion <- function(project, asset, version, cache=cacheDirectory(), overwri
         }
 
         if (relink) {
-            resolveLinks(project, asset, version, cache=cache, overwrite=overwrite, config=config)
+            resolveLinks(project, asset, version, cache=cache, overwrite=overwrite, url=url)
         }
 
         # Marking it as complete.

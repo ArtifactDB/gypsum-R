@@ -9,7 +9,8 @@
 #' i.e., the relative \dQuote{path} inside the version's \dQuote{subdirectory}.
 #' The full object key is defined as \code{{project}/{asset}/{version}/{path}}.
 #' @param cache String containing the path to the cache directory.
-#' @param config Configuration object for the S3 bucket, see \code{\link{publicS3Config}} for details.
+#' @param url String containing the URL of the gypsum REST API.
+#' @param config Deprecated and ignored.
 #' @param overwrite Logical scalar indicating whether to overwrite an existing file in \code{cache}.
 #' If \code{FALSE} and the file exists in \code{cache}, the download is skipped.
 #' 
@@ -33,16 +34,16 @@
 #' readLines(out)
 #' 
 #' @export
-saveFile <- function(project, asset, version, path, cache=cacheDirectory(), overwrite=FALSE, config=publicS3Config(cache=cache)) {
+saveFile <- function(project, asset, version, path, cache=cacheDirectory(), overwrite=FALSE, url=restUrl(), config=NULL) {
     acquire_lock(cache, project, asset, version)
     on.exit(release_lock(project, asset, version), add=TRUE, after=FALSE)
 
     object <- paste0(project, "/", asset, "/", version, "/", sanitize_path(path))
     destination <- file.path(cache, BUCKET_CACHE_NAME, project, asset, version, path)
-    found <- save_file(object, destination, overwrite=overwrite, config=config, error=FALSE)
+    found <- save_file(object, destination, overwrite=overwrite, url=url, error=FALSE)
 
     if (!found) {
-        link <- resolve_single_link(project, asset, version, path, cache, overwrite=overwrite, config=config)
+        link <- resolve_single_link(project, asset, version, path, cache, overwrite=overwrite, url=url)
         if (is.null(link)) {
             stop("'", path, "' does not exist in the bucket")
         }
@@ -55,7 +56,7 @@ saveFile <- function(project, asset, version, path, cache=cacheDirectory(), over
 }
 
 #' @importFrom jsonlite fromJSON
-resolve_single_link <- function(project, asset, version, path, cache, overwrite, config) {
+resolve_single_link <- function(project, asset, version, path, cache, overwrite, url) {
     if (grepl("/", path)) {
         lpath <- paste0(sub("/[^/]+$", "", path), "/..links")
     } else {
@@ -64,7 +65,7 @@ resolve_single_link <- function(project, asset, version, path, cache, overwrite,
 
     lobject <- paste0(project, "/", asset, "/", version, "/", lpath)
     ldestination <- file.path(cache, BUCKET_CACHE_NAME, project, asset, version, lpath)
-    if (!save_file(lobject, ldestination, overwrite=overwrite, config=config, error=FALSE)) {
+    if (!save_file(lobject, ldestination, overwrite=overwrite, url=url, error=FALSE)) {
         return(NULL)
     }
 
@@ -81,6 +82,6 @@ resolve_single_link <- function(project, asset, version, path, cache, overwrite,
 
     tobject <- paste0(target$project, "/", target$asset, "/", target$version, "/", target$path)
     tdestination <- file.path(cache, BUCKET_CACHE_NAME, target$project, target$asset, target$version, target$path)
-    save_file(tobject, tdestination, overwrite=overwrite, config=config)
+    save_file(tobject, tdestination, overwrite=overwrite, url=url)
     return(tdestination)
 }

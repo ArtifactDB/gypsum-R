@@ -4,12 +4,14 @@
 \alias{fetchUsage}
 \title{Fetch project usage details}
 \usage{
-fetchUsage(project, config = publicS3Config())
+fetchUsage(project, url = restUrl(), config = NULL)
 }
 \arguments{
 \item{project}{String containing the project name.}
 
-\item{config}{Configuration object for the S3 bucket, see \code{\link{publicS3Config}} for details.}
+\item{url}{String containing the URL of the gypsum REST API.}
+
+\item{config}{Deprecated and ignored.}
 }
 \value{
 Numeric scalar specifying the quota usage for the project, in bytes.

@@ -3,7 +3,7 @@
 #' List all projects in the gypsum backent.
 #'
 #' @param url String containing the URL of the gypsum REST API.
-#' @param config Configuration object for the S3 bucket, see \code{\link{publicS3Config}} for details.
+#' @param config Deprecated and ignored.
 #'
 #' @author Aaron Lun
 #'

@@ -4,12 +4,14 @@
 \alias{fetchPermissions}
 \title{Fetch project permissions}
 \usage{
-fetchPermissions(project, config = publicS3Config())
+fetchPermissions(project, url = restUrl(), config = NULL)
 }
 \arguments{
 \item{project}{String containing the project name.}
 
-\item{config}{Configuration object for the S3 bucket, see \code{\link{publicS3Config}} for details.}
+\item{url}{String containing the URL of the gypsum REST API.}
+
+\item{config}{Deprecated and ignored.}
 }
 \value{
 List containing the permissions for this project.

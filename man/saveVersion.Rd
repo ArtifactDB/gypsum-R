@@ -12,7 +12,8 @@ saveVersion(
   overwrite = FALSE,
   relink = TRUE,
   concurrent = 1,
-  config = publicS3Config(cache = cache)
+  url = restUrl(),
+  config = NULL
 )
 }
 \arguments{
@@ -31,7 +32,9 @@ If \code{FALSE} and the files already exist in \code{cache}, the download is ski
 
 \item{concurrent}{Integer specifying the number of concurrent downloads.}
 
-\item{config}{Configuration object for the S3 bucket, see \code{\link{publicS3Config}} for details.}
+\item{url}{String containing the URL of the gypsum REST API.}
+
+\item{config}{Deprecated and ignored.}
 }
 \value{
 The version's files are downloaded to the local file system, and the path to the local subdirectory is returned.

@@ -6,7 +6,8 @@
 #' @param asset String containing the asset name.
 #' @param version String containing the version name.
 #' @param cache String containing the path to the cache directory.
-#' @param config Configuration object for the S3 bucket, see \code{\link{publicS3Config}} for details.
+#' @param url String containing the URL of the gypsum REST API.
+#' @param config Deprecated and ignored.
 #' @param overwrite Logical scalar indicating whether to replace existing files at the linked-from paths.
 #' 
 #' @return \code{NULL} is returned on successful completion.
@@ -22,13 +23,13 @@
 #' list.files(cache, recursive=TRUE, all.files=TRUE)
 #'
 #' @export
-resolveLinks <- function(project, asset, version, cache=cacheDirectory(), overwrite=FALSE, config=publicS3Config(cache=cache)) {
+resolveLinks <- function(project, asset, version, cache=cacheDirectory(), overwrite=FALSE, url=restUrl(), config=NULL) {
     acquire_lock(cache, project, asset, version)
     on.exit(release_lock(project, asset, version), add=TRUE, after=FALSE)
     destination <- file.path(cache, BUCKET_CACHE_NAME, project, asset, version)
 
     manifests <- list()
-    selfmanifest <- fetchManifest(project, asset, version, cache=cache, config=config)
+    selfmanifest <- fetchManifest(project, asset, version, cache=cache, url=url)
     manifests[[paste(project, asset, version, sep="/")]] <- selfmanifest
 
     for (l in names(selfmanifest)) {
@@ -46,7 +47,7 @@ resolveLinks <- function(project, asset, version, cache=cacheDirectory(), overwr
         if (!is.null(linkdata$ancestor)) {
             linkdata <- linkdata$ancestor
         }
-        out <- saveFile(linkdata$project, linkdata$asset, linkdata$version, linkdata$path, cache=cache, config=config, overwrite=overwrite)
+        out <- saveFile(linkdata$project, linkdata$asset, linkdata$version, linkdata$path, cache=cache, url=url, overwrite=overwrite)
 
         oldpath <- file.path(cache, BUCKET_CACHE_NAME, oldloc)
         unlink(oldpath, force=TRUE) # remove any existing file.

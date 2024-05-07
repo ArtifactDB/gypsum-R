@@ -3,7 +3,8 @@
 #' Fetch the permissions for a project.
 #' 
 #' @param project String containing the project name.
-#' @param config Configuration object for the S3 bucket, see \code{\link{publicS3Config}} for details.
+#' @param url String containing the URL of the gypsum REST API.
+#' @param config Deprecated and ignored.
 #'
 #' @return List containing the permissions for this project.
 #' This has the following elements:
@@ -34,14 +35,8 @@
 #'
 #' @export
 #' @importFrom jsonlite fromJSON
-fetchPermissions <- function(project, config=publicS3Config()) {
-    out <- get_file(paste0(project, "/..permissions"), config=config) 
-
-    msg <- rawToChar(out)
-    if (grepl("^<", msg)) {
-        stop(msg)
-    }
-    perms <- fromJSON(msg, simplifyVector=FALSE)
+fetchPermissions <- function(project, url=restUrl(), config=NULL) {
+    perms <- get_file(paste0(project, "/..permissions"), url=url)
 
     # Converting everything to POSIX dates.
     for (i in seq_along(perms$uploaders)) {

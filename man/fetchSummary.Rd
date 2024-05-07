@@ -10,7 +10,8 @@ fetchSummary(
   version,
   cache = cacheDirectory(),
   overwrite = FALSE,
-  config = publicS3Config(cache = cache)
+  url = restUrl(),
+  config = NULL
 )
 }
 \arguments{
@@ -25,7 +26,9 @@ If \code{NULL}, no caching is performed.}
 
 \item{overwrite}{Logical scalar indicating whether to overwrite an existing file in \code{cache}, if one is present.}
 
-\item{config}{Configuration object for the S3 bucket, see \code{\link{publicS3Config}} for details.}
+\item{url}{String containing the URL of the gypsum REST API.}
+
+\item{config}{Deprecated and ignored.}
 }
 \value{
 List containing the summary for this version, with the following fields:

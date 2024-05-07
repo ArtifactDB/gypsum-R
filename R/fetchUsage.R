@@ -3,7 +3,8 @@
 #' Fetch the quota usage for a project.
 #' 
 #' @param project String containing the project name.
-#' @param config Configuration object for the S3 bucket, see \code{\link{publicS3Config}} for details.
+#' @param url String containing the URL of the gypsum REST API.
+#' @param config Deprecated and ignored.
 #'
 #' @return Numeric scalar specifying the quota usage for the project, in bytes.
 #'
@@ -16,12 +17,7 @@
 #' \code{\link{refreshUsage}}, to recompute the used quota.
 #'
 #' @export
-#' @importFrom jsonlite fromJSON
-fetchUsage <- function(project, config=publicS3Config()) {
-    out <- get_file(paste(project, "..usage", sep="/"), config=config) 
-    msg <- rawToChar(out)
-    if (grepl("^<", msg)) {
-        stop(msg)
-    }
-    fromJSON(msg, simplifyVector=FALSE)$total
+fetchUsage <- function(project, url=restUrl(), config=NULL) {
+    used <- get_json(paste(project, "..usage", sep="/"), url=url)
+    used$total
 }

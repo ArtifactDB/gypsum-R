@@ -11,7 +11,8 @@ saveFile(
   path,
   cache = cacheDirectory(),
   overwrite = FALSE,
-  config = publicS3Config(cache = cache)
+  url = restUrl(),
+  config = NULL
 )
 }
 \arguments{
@@ -30,7 +31,9 @@ The full object key is defined as \code{{project}/{asset}/{version}/{path}}.}
 \item{overwrite}{Logical scalar indicating whether to overwrite an existing file in \code{cache}.
 If \code{FALSE} and the file exists in \code{cache}, the download is skipped.}
 
-\item{config}{Configuration object for the S3 bucket, see \code{\link{publicS3Config}} for details.}
+\item{url}{String containing the URL of the gypsum REST API.}
+
+\item{config}{Deprecated and ignored.}
 }
 \value{
 The file is downloaded to the local file system. The destination file path is returned.

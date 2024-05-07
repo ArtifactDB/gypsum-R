@@ -11,7 +11,8 @@ cloneVersion(
   destination,
   download = TRUE,
   cache = cacheDirectory(),
-  config = publicS3Config(cache = cache),
+  url = restUrl(),
+  config = NULL,
   ...
 )
 }
@@ -29,7 +30,9 @@ This can be set to \code{FALSE} to create a clone without actually downloading a
 
 \item{cache}{String containing the path to the cache directory.}
 
-\item{config}{Configuration object for the S3 bucket, see \code{\link{publicS3Config}} for details.}
+\item{url}{String containing the URL of the gypsum REST API.}
+
+\item{config}{Deprecated and ignored.}
 
 \item{...}{Further arguments to pass to \code{\link{saveVersion}}.
 Only used if \code{download=TRUE}.}

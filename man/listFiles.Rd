@@ -10,7 +10,8 @@ listFiles(
   version,
   prefix = NULL,
   include.. = TRUE,
-  config = publicS3Config()
+  url = restUrl(),
+  config = NULL
 )
 }
 \arguments{
@@ -26,7 +27,9 @@ If \code{NULL}, all files associated with this version of the asset are listed.}
 
 \item{include..}{Logical scalar indicating whether to list files with \code{/..} in their object keys.}
 
-\item{config}{Configuration object for the S3 bucket, see \code{\link{publicS3Config}} for details.}
+\item{url}{String containing the URL of the gypsum REST API.}
+
+\item{config}{Deprecated and ignored.}
 }
 \value{
 Character vector of relative paths of files associated with the versioned asset.

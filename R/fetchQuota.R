@@ -3,7 +3,8 @@
 #' Fetch the quota details for a project.
 #' 
 #' @param project String containing the project name.
-#' @param config Configuration object for the S3 bucket, see \code{\link{publicS3Config}} for details.
+#' @param url String containing the URL of the gypsum REST API.
+#' @param config Deprecated and ignored.
 #'
 #' @return List containing \code{baseline}, the baseline quota at time zero in bytes;
 #' \code{growth_rate}, the annual growth rate for the quota in bytes;
@@ -19,11 +20,6 @@
 #'
 #' @export
 #' @importFrom jsonlite fromJSON
-fetchQuota <- function(project, config=publicS3Config()) {
-    out <- get_file(paste(project, "..quota", sep="/"), config=config) 
-    msg <- rawToChar(out)
-    if (grepl("^<", msg)) {
-        stop(msg)
-    }
-    fromJSON(msg, simplifyVector=FALSE)
+fetchQuota <- function(project, url=restUrl(), config=NULL) {
+    get_file(paste(project, "..quota", sep="/"), url=url)
 }

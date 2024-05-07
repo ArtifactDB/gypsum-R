@@ -4,10 +4,12 @@
 \alias{listProjects}
 \title{List all projects}
 \usage{
-listProjects(config = publicS3Config())
+listProjects(url = restUrl(), config = NULL)
 }
 \arguments{
-\item{config}{Configuration object for the S3 bucket, see \code{\link{publicS3Config}} for details.}
+\item{url}{String containing the URL of the gypsum REST API.}
+
+\item{config}{Deprecated and ignored.}
 }
 \value{
 Character vector of project names.

@@ -10,7 +10,8 @@ resolveLinks(
   version,
   cache = cacheDirectory(),
   overwrite = FALSE,
-  config = publicS3Config(cache = cache)
+  url = restUrl(),
+  config = NULL
 )
 }
 \arguments{
@@ -24,7 +25,9 @@ resolveLinks(
 
 \item{overwrite}{Logical scalar indicating whether to replace existing files at the linked-from paths.}
 
-\item{config}{Configuration object for the S3 bucket, see \code{\link{publicS3Config}} for details.}
+\item{url}{String containing the URL of the gypsum REST API.}
+
+\item{config}{Deprecated and ignored.}
 }
 \value{
 \code{NULL} is returned on successful completion.

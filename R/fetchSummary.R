@@ -19,7 +19,7 @@
 #' fetchSummary("test-R", "basic", "v1")
 #' 
 #' @export
-fetchSummary <- function(project, asset, version, cache=cacheDirectory(), overwrite=FALSE, config=publicS3Config(cache=cache)) {
+fetchSummary <- function(project, asset, version, cache=cacheDirectory(), overwrite=FALSE, url=restUrl(), config=NULL) {
     out <- get_cacheable_json(
         project, 
         asset, 
@@ -27,7 +27,7 @@ fetchSummary <- function(project, asset, version, cache=cacheDirectory(), overwr
         "..summary", 
         cache=cache, 
         overwrite=overwrite,
-        config=config
+        url=url
     )
 
     out$upload_start <- .cast_datetime(out$upload_start)

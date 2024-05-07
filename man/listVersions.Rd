@@ -4,14 +4,16 @@
 \alias{listVersions}
 \title{List asset versions}
 \usage{
-listVersions(project, asset, config = publicS3Config())
+listVersions(project, asset, url = restUrl(), config = NULL)
 }
 \arguments{
 \item{project}{String containing the project name.}
 
 \item{asset}{String containing the asset name.}
 
-\item{config}{Configuration object for the S3 bucket, see \code{\link{publicS3Config}} for details.}
+\item{url}{String containing the URL of the gypsum REST API.}
+
+\item{config}{Deprecated and ignored.}
 }
 \value{
 Character vector of versions.
