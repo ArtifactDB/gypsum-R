@@ -4,7 +4,8 @@
 #' 
 #' @param project String containing the project name.
 #' @param asset String containing the asset name.
-#' @param config Ignored.
+#' @param url String containing the URL of the gypsum REST API.
+#' @param config Deprecated and ignored.
 #'
 #' @return String containing the latest version of the project.
 #'

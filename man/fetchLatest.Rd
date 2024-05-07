@@ -11,7 +11,9 @@ fetchLatest(project, asset, url = restUrl(), config = NULL)
 
 \item{asset}{String containing the asset name.}
 
-\item{config}{Ignored.}
+\item{url}{String containing the URL of the gypsum REST API.}
+
+\item{config}{Deprecated and ignored.}
 }
 \value{
 String containing the latest version of the project.
