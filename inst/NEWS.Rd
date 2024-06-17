@@ -9,6 +9,10 @@ This allows re-use of the cache with the equivalent Python client.
 \item Improve handling of unexpected errors with non-JSON bodies.
 
 \item Added the \code{unlockProject()} utility for administrators.
+
+\item Added \code{definePathQuery()} to allow construction of queries that use the path to the metadata document, as well as the project, asset or version names.
+
+\item Extended \code{searchMetadataTextFilter()} to support custom names/aliases for the project, asset, version and path columns.
 }}
 
 \section{Version 1.0.1}{\itemize{

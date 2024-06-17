@@ -5,6 +5,7 @@
 \alias{gypsum.search.clause}
 \alias{Ops.gypsum.search.clause}
 \alias{defineTextQuery}
+\alias{definePathQuery}
 \alias{searchMetadataTextFilter}
 \title{Text search on the metadata database}
 \usage{
@@ -12,13 +13,26 @@ searchMetadataText(path, query, latest = TRUE, include.metadata = TRUE)
 
 defineTextQuery(text, field = NULL, partial = FALSE)
 
-searchMetadataTextFilter(query, pid.name = "paths.pid")
+definePathQuery(project, asset, version, path, partial = FALSE)
+
+searchMetadataTextFilter(
+  query,
+  pid.name = "paths.pid",
+  project.name = "versions.project",
+  asset.name = "versions.asset",
+  version.name = "versions.version",
+  path.name = "paths.path"
+)
 }
 \arguments{
-\item{path}{String containing a path to a SQLite file, usually obtained via \code{\link{fetchMetadataDatabase}}.}
+\item{path}{For \code{searchMetadataText}, a string containing a path to a SQLite file, usually obtained via \code{\link{fetchMetadataDatabase}}.
+
+For \code{definePathQuery}, the suffix of the object key of the metadata document, 
+i.e., the relative \dQuote{path} to the metadata file inside the version's \dQuote{directory}.
+This may be missing as long as other arguments are supplied to \code{definePathQuery}.}
 
 \item{query}{Character vector specifying the query to execute.
-Alternatively, a \code{gypsum.search.object} produced by \code{defineTextQuery}.}
+Alternatively, a \code{gypsum.search.clause} produced by \code{defineTextQuery} or \code{definePathQuery}.}
 
 \item{latest}{Logical scalar indicating whether to only search for matches within the latest version of each asset.}
 
@@ -30,10 +44,29 @@ This will be automatically tokenized, see Details.}
 \item{field}{String specifying the name of the metadata field in which to search for \code{text}.
 If \code{NULL}, the search is performed on all available metadata fields.}
 
-\item{partial}{Logical scalar indicating whether \code{text} contains SQLite wildcards (\code{\%}, \code{_}) for a partial search.
-If \code{TRUE}, the wildcards are preserved during tokenization.}
+\item{partial}{For \code{defineTextQuery}, a logical scalar indicating whether \code{text} contains SQLite wildcards (\code{\%}, \code{_}) for a partial search.
+If \code{TRUE}, the wildcards are preserved during tokenization.
+
+For \code{definePathQuery}, a logical scalar indicating whether non-missing \code{project}, \code{asset}, \code{version} and \code{path} contains wildcards for a partial search.}
+
+\item{project}{String containing the name of the project.
+This may be missing as long as other arguments are supplied to \code{definePathQuery}.}
+
+\item{asset}{String containing the name of the asset.
+This may be missing as long as other arguments are supplied to \code{definePathQuery}.}
+
+\item{version}{String containing the name of the version.
+This may be missing as long as other arguments are supplied to \code{definePathQuery}.}
 
 \item{pid.name}{String containing the name/alias of the column of the \code{paths} table that contains the path ID.}
+
+\item{project.name}{String containing the name/alias of the column of the \code{versions} table that contains the project name.}
+
+\item{asset.name}{String containing the name/alias of the column of the \code{versions} table that contains the asset name.}
+
+\item{version.name}{String containing the name/alias of the column of the \code{versions} table that contains the version name.}
+
+\item{path.name}{String containing the name/alias of the column of the \code{paths} table that contains the path name.}
 }
 \value{
 For \code{searchMetadataText}, a data frame specifying the contaning the search results.
@@ -51,7 +84,8 @@ For \code{searchMetadataTextFilter}, a list containing \code{where}, a string ca
 and \code{parameters}, the parameter bindings to be used in \code{where}.
 The return value may also be \code{NULL} if the query has no well-defined filter.
 
-For \code{defineTextQuery}, a \code{gypsum.search.clause} object that can be used in \code{|}, \code{&} and \code{!} to create more complex queries involving multiple text clauses.
+For \code{defineTextQuery} and \code{definePathQuery},
+a \code{gypsum.search.clause} object that can be used in \code{|}, \code{&} and \code{!} to create more complex queries involving multiple clauses.
 }
 \description{
 Perform a text search on a SQLite database containing metadata from the gypsum backend.

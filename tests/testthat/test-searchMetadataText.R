@@ -109,6 +109,10 @@ test_that("searchMetadataText works for OR searches", {
     query <- (defineTextQuery("teleport") | defineTextQuery("aerohand")) | defineTextQuery("mental")
     out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("mitsuko.txt", "kuroko.txt", "misaki.txt"))
+
+    query <- (defineTextQuery("%sa%", field="school", partial=TRUE) | defineTextQuery("mental"))
+    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+    expect_identical(out$path, c("misaki.txt", "ruiko.txt", "kazari.txt"))
 })
 
 test_that("searchMetadataText works with combined AND and OR searches", {
@@ -149,6 +153,25 @@ test_that("searchMetadataText works for NOT searches", {
     query <- defineTextQuery("rank") & !defineTextQuery("tokiwadai")
     out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("accelerator.txt"))
+})
+
+test_that("searchMetadataText works for path-based searches", {
+    query <- definePathQuery(project="foo", asset="bar")
+    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+    expect_identical(sort(out$path), sort(c("mikoto.txt", "mitsuko.txt", "kuroko.txt", "misaki.txt", "ruiko.txt", "kazari.txt", "accelerator.txt"))) 
+
+    query <- definePathQuery(version="2")
+    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+    expect_identical(out$path, c("mitsuko.txt", "ruiko.txt"))
+
+    query <- definePathQuery(path="%ko_txt", partial=TRUE)
+    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+    expect_identical(out$path, c("mitsuko.txt", "kuroko.txt", "ruiko.txt"))
+
+    # Combines with the other searches.
+    query <- definePathQuery(path="kuroko.txt") | defineTextQuery("railgun")
+    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+    expect_identical(out$path, c("mikoto.txt", "kuroko.txt"))
 })
 
 test_that("searchMetadataText works with ill-defined filters", {

@@ -5,17 +5,33 @@
 #' see \url{https://github.com/ArtifactDB/bioconductor-metadata-index} for details.
 #'
 #' @param query Character vector specifying the query to execute.
-#' Alternatively, a \code{gypsum.search.object} produced by \code{defineTextQuery}.
-#' @param path String containing a path to a SQLite file, usually obtained via \code{\link{fetchMetadataDatabase}}.
+#' Alternatively, a \code{gypsum.search.clause} produced by \code{defineTextQuery} or \code{definePathQuery}.
+#' @param path For \code{searchMetadataText}, a string containing a path to a SQLite file, usually obtained via \code{\link{fetchMetadataDatabase}}.
+#' 
+#' For \code{definePathQuery}, the suffix of the object key of the metadata document, 
+#' i.e., the relative \dQuote{path} to the metadata file inside the version's \dQuote{directory}.
+#' This may be missing as long as other arguments are supplied to \code{definePathQuery}.
 #' @param latest Logical scalar indicating whether to only search for matches within the latest version of each asset.
 #' @param include.metadata Logical scalar indicating whether metadata should be returned.
 #' @param pid.name String containing the name/alias of the column of the \code{paths} table that contains the path ID.
+#' @param project.name String containing the name/alias of the column of the \code{versions} table that contains the project name.
+#' @param asset.name String containing the name/alias of the column of the \code{versions} table that contains the asset name.
+#' @param version.name String containing the name/alias of the column of the \code{versions} table that contains the version name.
+#' @param path.name String containing the name/alias of the column of the \code{paths} table that contains the path name.
 #' @param text String containing the text to query on.
 #' This will be automatically tokenized, see Details.
+#' @param project String containing the name of the project.
+#' This may be missing as long as other arguments are supplied to \code{definePathQuery}.
+#' @param asset String containing the name of the asset.
+#' This may be missing as long as other arguments are supplied to \code{definePathQuery}.
+#' @param version String containing the name of the version.
+#' This may be missing as long as other arguments are supplied to \code{definePathQuery}.
 #' @param field String specifying the name of the metadata field in which to search for \code{text}.
 #' If \code{NULL}, the search is performed on all available metadata fields.
-#' @param partial Logical scalar indicating whether \code{text} contains SQLite wildcards (\code{\%}, \code{_}) for a partial search.
+#' @param partial For \code{defineTextQuery}, a logical scalar indicating whether \code{text} contains SQLite wildcards (\code{\%}, \code{_}) for a partial search.
 #' If \code{TRUE}, the wildcards are preserved during tokenization.
+#'
+#' For \code{definePathQuery}, a logical scalar indicating whether non-missing \code{project}, \code{asset}, \code{version} and \code{path} contains wildcards for a partial search.
 #'
 #' @return 
 #' For \code{searchMetadataText}, a data frame specifying the contaning the search results.
@@ -33,7 +49,8 @@
 #' and \code{parameters}, the parameter bindings to be used in \code{where}.
 #' The return value may also be \code{NULL} if the query has no well-defined filter.
 #'
-#' For \code{defineTextQuery}, a \code{gypsum.search.clause} object that can be used in \code{|}, \code{&} and \code{!} to create more complex queries involving multiple text clauses.
+#' For \code{defineTextQuery} and \code{definePathQuery},
+#' a \code{gypsum.search.clause} object that can be used in \code{|}, \code{&} and \code{!} to create more complex queries involving multiple clauses.
 #'
 #' @author Aaron Lun
 #'
@@ -164,15 +181,30 @@ Ops.gypsum.search.clause <- function(e1, e2) {
 
 #' @export
 #' @rdname searchMetadataText
-searchMetadataTextFilter <- function(query, pid.name = 'paths.pid') {
+searchMetadataTextFilter <- function(
+    query,
+    pid.name = 'paths.pid', 
+    project.name="versions.project",
+    asset.name="versions.asset",
+    version.name="versions.version",
+    path.name="paths.path")
+{
     query <- sanitize_query(query)
     if (is.null(query)) {
         return(NULL)
     }
 
+    names <- list(
+        pid=pid.name,
+        project=project.name,
+        asset=asset.name,
+        version=version.name,
+        path=path.name
+    )
+
     env <- new.env()
     env$parameters <- list()
-    cond <- build_query(query, pid.name, env)
+    cond <- build_query(query, names, env)
     list(where=cond, parameters=env$parameters)
 }
 
@@ -189,6 +221,10 @@ sanitize_query <- function(query) {
     }
 
     qt <- query$type
+    if (qt %in% c("project", "asset", "version", "path")) {
+        return(query)
+    }
+
     if (qt == "not") {
         child <- sanitize_query(query$child)
         if (is.null(child)) {
@@ -250,39 +286,58 @@ add_query_parameter <- function(env, value) {
     newname
 }
 
-build_query <- function(query, name, env) {
-    qt <- query$type
-    if (qt == "text") {
-        nt <- add_query_parameter(env, query$text)
-        if (isTRUE(query$partial)) {
-            match.str <- paste0("tokens.token LIKE :", nt) 
-        } else {
-            match.str <- paste0("tokens.token = :", nt) 
-        }
+add_token_search_clause <- function(query, env) {
+    nt <- add_query_parameter(env, query$text)
+    if (isTRUE(query$partial)) {
+        paste0("tokens.token LIKE :", nt) 
+    } else {
+        paste0("tokens.token = :", nt) 
+    }
+}
 
+setup_token_search_subquery_basic <- function(names, where) {
+    sprintf("%s IN (SELECT pid from links LEFT JOIN tokens ON tokens.tid = links.tid WHERE %s)", names$pid, where)
+}
+
+setup_token_search_subquery_with_field <- function(names, where) {
+    sprintf("%s IN (SELECT pid from links LEFT JOIN tokens ON tokens.tid = links.tid LEFT JOIN fields ON fields.fid = links.fid WHERE %s)", names$pid, where)
+}
+
+build_query <- function(query, names, env) {
+    qt <- query$type
+
+    if (qt == "text") {
+        match.str <- add_token_search_clause(query, env)
         field <- query$field
         if (!is.null(field)) {
             nf <- add_query_parameter(env, field)
-            return(sprintf("%s IN (SELECT pid from links LEFT JOIN tokens ON tokens.tid = links.tid LEFT JOIN fields ON fields.fid = links.fid WHERE %s AND fields.field = :%s)", name, match.str, nf))
+            return(setup_token_search_subquery_with_field(names, sprintf("fields.field = :%s AND %s", nf, match.str)))
         } else {
-            return(sprintf("%s IN (SELECT pid from links LEFT JOIN tokens ON tokens.tid = links.tid WHERE %s)", name, match.str))
+            return(setup_token_search_subquery_basic(names, match.str))
+        }
+    }
+
+    if (qt %in% c("project", "asset", "version", "path")) {
+        nt <- add_query_parameter(env, query[[qt]])
+        db.name <- names[[qt]]
+        if (isTRUE(query$partial)) {
+            return(sprintf("%s LIKE :%s", db.name, nt))
+        } else {
+            return(sprintf("%s = :%s", db.name, nt))
         }
     }
 
     if (qt == "not") {
-        return(paste0("NOT ", build_query(query$child, name, env)))
+        return(paste0("NOT ", build_query(query$child, names, env)))
     }
 
     if (qt == "and") {
-        out <- lapply(query$children, build_query, name=name, env=env)
+        out <- lapply(query$children, build_query, name=names, env=env)
         return(paste0("(", paste(out, collapse=" AND "), ")"))
     }
 
-    qtypes <- vapply(query$children, function(x) query$type, "")
-    processed <- logical(length(query))
-
     # Collapse text children into a single subquery.
-    is.text <- qtypes == "text"
+    is.text <- vapply(query$children, function(x) x$type, "") == "text"
     out <- character(0)
     if (any(is.text)) {
         textual <- query$children[is.text]
@@ -290,13 +345,7 @@ build_query <- function(query, name, env) {
 
         for (i in seq_along(textual)) {
             current <- textual[[i]]
-            nt <- add_query_parameter(env, current[[1]])
-            if (isTRUE(current$partial)) {
-                match.str <- paste0("tokens.token LIKE :", nt) 
-            } else {
-                match.str <- paste0("tokens.token = :", nt) 
-            }
-
+            match.str <- add_token_search_clause(current, env)
             field <- current$field
             if (is.null(field)) {
                 textual[[i]] <- match.str
@@ -309,42 +358,15 @@ build_query <- function(query, name, env) {
 
         textual <- paste(unlist(textual), collapse=" OR ")
         if (needs.field) {
-            out <- c(out, sprintf("%s IN (SELECT pid from links LEFT JOIN tokens ON tokens.tid = links.tid LEFT JOIN fields ON fields.fid = links.fid WHERE %s)", name, textual))
+            out <- c(out, setup_token_search_subquery_with_field(names, textual))
         } else {
-            out <- c(out, sprintf("%s IN (SELECT pid from links LEFT JOIN tokens ON tokens.tid = links.tid WHERE %s)", name, textual))
+            out <- c(out, setup_token_search_subquery_basic(names, textual))
         }
-
-        processed[is.text] <- TRUE
-    }
-
-    # Collapse project/asset/version/path children into a single subquery.
-    for (ptype in c("project", "asset", "version", "path")) {
-        is.path <- qtypes == ptype
-        if (!any(is.path)) {
-            next
-        }
-
-        query_path <- query$children[is.path]
-        needs.field <- FALSE
-        tab.name <- if (ptype == "path") "paths" else "versions"
-
-        for (i in seq_along(textual)) {
-            current <- textual[[i]]
-            nt <- add_query_parameter(env, current[[1]])
-            if (isTRUE(current$partial)) {
-                query_path[[i]] <- paste0("%s.%s LIKE :", tab.name, ptype, nt) 
-            } else {
-                query_path[[i]] <- paste0("%s.%s = :", tab.name, ptype, nt) 
-            }
-        }
-
-        out <- c(out, paste(unlist(query_path), collapse= " OR "))
-        processed[is.path] <- TRUE
     }
 
     # All non-text children to be processed as separate subqueries, I'm afraid.
-    if (!all(processed)) {
-        out <- c(out, vapply(query$children[!processed], build_query, name=name, env=env, ""))
+    if (!all(is.text)) {
+        out <- c(out, vapply(query$children[!is.text], build_query, names=names, env=env, ""))
     }
     paste0("(", paste(out, collapse=" OR "), ")")
 }
