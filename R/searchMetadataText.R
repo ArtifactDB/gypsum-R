@@ -112,6 +112,42 @@ defineTextQuery <- function(text, field=NULL, partial=FALSE) {
 }
 
 #' @export
+#' @rdname searchMetadataText
+definePathQuery <- function(project, asset, version, path, partial=FALSE) {
+    collected <- list()
+
+    if (!missing(project)) {
+        collected <- c(collected, list(list(type = "project", project = project, partial = partial)))
+    }
+
+    if (!missing(asset)) {
+        collected <- c(collected, list(list(type = "asset", asset = asset, partial = partial)))
+    }
+
+    if (!missing(version)) {
+        collected <- c(collected, list(list(type = "version", version = version, partial = partial)))
+    }
+
+    if (!missing(path)) {
+        collected <- c(collected, list(list(type = "path", path = path, partial = partial)))
+    }
+
+    for (i in seq_along(collected)) {
+        class(collected[[i]]) <- "gypsum.search.clause"
+    }
+
+    if (length(collected) == 0) {
+        stop("at least one of 'project', 'asset', 'version' or 'path' must be specified")
+    } else if (length(collected) == 1) {
+        collected[[1]]
+    } else {
+        output <- list(type = "and", children = collected)
+        class(output) <- "gypsum.search.clause"
+        output
+    }
+}
+
+#' @export
 Ops.gypsum.search.clause <- function(e1, e2) {
     if (.Generic == "&") {
         output <- list(type="and", children=list(e1, e2))
@@ -161,7 +197,7 @@ sanitize_query <- function(query) {
         return(list(type="not", child=child))
     }
 
-    if (qt != "text") {
+    if (qt == "and" || qt == "or") {
         rechildren <- lapply(query$children, sanitize_query)
 
         keep <- !vapply(rechildren, is.null, FALSE)
@@ -242,10 +278,12 @@ build_query <- function(query, name, env) {
         return(paste0("(", paste(out, collapse=" AND "), ")"))
     }
 
-    is.text <- vapply(query$children, function(x) query$type, "") == "text"
-    out <- character(0)
+    qtypes <- vapply(query$children, function(x) query$type, "")
+    processed <- logical(length(query))
 
     # Collapse text children into a single subquery.
+    is.text <- qtypes == "text"
+    out <- character(0)
     if (any(is.text)) {
         textual <- query$children[is.text]
         needs.field <- FALSE
@@ -275,11 +313,38 @@ build_query <- function(query, name, env) {
         } else {
             out <- c(out, sprintf("%s IN (SELECT pid from links LEFT JOIN tokens ON tokens.tid = links.tid WHERE %s)", name, textual))
         }
+
+        processed[is.text] <- TRUE
+    }
+
+    # Collapse project/asset/version/path children into a single subquery.
+    for (ptype in c("project", "asset", "version", "path")) {
+        is.path <- qtypes == ptype
+        if (!any(is.path)) {
+            next
+        }
+
+        query_path <- query$children[is.path]
+        needs.field <- FALSE
+        tab.name <- if (ptype == "path") "paths" else "versions"
+
+        for (i in seq_along(textual)) {
+            current <- textual[[i]]
+            nt <- add_query_parameter(env, current[[1]])
+            if (isTRUE(current$partial)) {
+                query_path[[i]] <- paste0("%s.%s LIKE :", tab.name, ptype, nt) 
+            } else {
+                query_path[[i]] <- paste0("%s.%s = :", tab.name, ptype, nt) 
+            }
+        }
+
+        out <- c(out, paste(unlist(query_path), collapse= " OR "))
+        processed[is.path] <- TRUE
     }
 
     # All non-text children to be processed as separate subqueries, I'm afraid.
-    if (!all(is.text)) {
-        out <- c(out, vapply(query$children[!is.text], build_query, name=name, env=env, ""))
+    if (!all(processed)) {
+        out <- c(out, vapply(query$children[!processed], build_query, name=name, env=env, ""))
     }
     paste0("(", paste(out, collapse=" OR "), ")")
 }
