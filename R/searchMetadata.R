@@ -88,6 +88,10 @@
 #' has.neuro <- gsc("Neuro%", partial=TRUE)
 #' searchMetadata(path, has.neuro, include.metadata=FALSE)
 #'
+#' # We can also query other properties.
+#' datasets <- gsc(project="scRNAseq") & gsc(asset="l%", partial=TRUE)
+#' searchMetadata(path, datasets, include.metadata=FALSE)
+#'
 #' @aliases
 #' gypsum.search.clause
 #' Ops.gypsum.search.clause

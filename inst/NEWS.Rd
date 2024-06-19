@@ -10,9 +10,15 @@ This allows re-use of the cache with the equivalent Python client.
 
 \item Added the \code{unlockProject()} utility for administrators.
 
-\item Added \code{definePathQuery()} to allow construction of queries that use the path to the metadata document, as well as the project, asset or version names.
+\item Renamed \code{defineTextQuery()} to \code{gsc()} (for \dQuote{gypsum search clause}) and generalized it to other fields in the SQLite file.
+Specifically, it now can filter based on the path to the metadata document, the project, asset or version names, the identity of the uploader and the timestamp of the upload.
 
-\item Extended \code{searchMetadataTextFilter()} to support custom names/aliases for the project, asset, version and path columns.
+\item Renamed \code{searchMetadataText()} to \code{searchMetadata()}, to reflect the more general nature of the search with the new \code{gsc()} function.
+The old name is now soft-deprecated.
+
+\item Renamed \code{searchMetadataTextFilter()} to \code{searchMetadataFilter()}, to reflect the more general nature of the search.
+The old name is now soft-deprecated.
+Also added arguments to support custom names/aliases for the project, asset, version and path columns.
 }}
 
 \section{Version 1.0.1}{\itemize{

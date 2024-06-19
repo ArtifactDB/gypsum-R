@@ -138,6 +138,10 @@ searchMetadata(path, query, include.metadata=FALSE)
 has.neuro <- gsc("Neuro\%", partial=TRUE)
 searchMetadata(path, has.neuro, include.metadata=FALSE)
 
+# We can also query other properties.
+datasets <- gsc(project="scRNAseq") & gsc(asset="l\%", partial=TRUE)
+searchMetadata(path, datasets, include.metadata=FALSE)
+
 }
 \seealso{
 \code{\link{fetchMetadataDatabase}}, to download and cache the database files.
