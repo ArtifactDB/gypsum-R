@@ -1,5 +1,5 @@
-# This tests the searchMetadataText function.
-# library(testthat); library(gypsum); source("test-searchMetadataText.R")
+# This tests the searchMetadata function.
+# library(testthat); library(gypsum); source("test-searchMetadata.R")
 
 library(DBI)
 library(RSQLite)
@@ -14,7 +14,9 @@ tmp <- tempfile(fileext=".sqlite3")
         project = "foo",
         asset = "bar",
         version = as.character(1:3),
-        latest = c(FALSE, FALSE, TRUE)
+        latest = c(FALSE, FALSE, TRUE),
+        user = c("foo", "bar", "stuff"),
+        time = 1:3
     ))
 
     metadata <- list(
@@ -53,144 +55,152 @@ tmp <- tempfile(fileext=".sqlite3")
     dbWriteTable(conn, "links", data.frame(links))
 })()
 
-test_that("searchMetadataText works for text searches", {
-    out <- searchMetadataText(tmp, c("mikoto"), include.metadata=FALSE, latest=FALSE)
+test_that("searchMetadata works for text searches", {
+    out <- searchMetadata(tmp, c("mikoto"), include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, "mikoto.txt")
 
     # Tokenization works correctly.
-    out <- searchMetadataText(tmp, c(" kuroko "), include.metadata=FALSE, latest=FALSE)
+    out <- searchMetadata(tmp, c(" kuroko "), include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("kuroko.txt"))
-    out <- searchMetadataText(tmp, c("TOKIWADAI"), include.metadata=FALSE, latest=FALSE)
+    out <- searchMetadata(tmp, c("TOKIWADAI"), include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("mikoto.txt", "mitsuko.txt", "kuroko.txt", "misaki.txt"))
 
     # Partial matching works correctly.
-    query <- defineTextQuery("Mi%", partial=TRUE)
-    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+    query <- gsc("Mi%", partial=TRUE)
+    out <- searchMetadata(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("mikoto.txt", "mitsuko.txt", "misaki.txt"))
 
     # Field-specific matching works correctly.
-    query <- defineTextQuery("sa%", partial=TRUE, field="last_name")
-    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+    query <- gsc("sa%", partial=TRUE, field="last_name")
+    out <- searchMetadata(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("ruiko.txt"))
 })
 
-test_that("searchMetadataText works for AND searches", {
+test_that("searchMetadata works for AND searches", {
     # AND automatically happens upon tokenization.
-    out <- searchMetadataText(tmp, c("sakugawa judgement"), include.metadata=FALSE, latest=FALSE)
+    out <- searchMetadata(tmp, c("sakugawa judgement"), include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, "kazari.txt")
 
     # We can also be more explicit.
-    query <- defineTextQuery("rank") & defineTextQuery("male")
-    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+    query <- gsc("rank") & gsc("male")
+    out <- searchMetadata(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, "accelerator.txt")
 
     # Nested ANDs are handled properly.
-    query <- (defineTextQuery("s%", partial=TRUE) & defineTextQuery("tokiwadai")) & defineTextQuery("judgement")
-    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+    query <- (gsc("s%", partial=TRUE) & gsc("tokiwadai")) & gsc("judgement")
+    out <- searchMetadata(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, "kuroko.txt")
 })
 
-test_that("searchMetadataText works for OR searches", {
-    query <- defineTextQuery("uiharu") | defineTextQuery("rank")
-    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+test_that("searchMetadata works for OR searches", {
+    query <- gsc("uiharu") | gsc("rank")
+    out <- searchMetadata(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("mikoto.txt", "misaki.txt", "kazari.txt", "accelerator.txt"))
 
     # ORs work correctly with partial matches.
-    query <- defineTextQuery("judgement") | defineTextQuery("Mi%", partial=TRUE)
-    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+    query <- gsc("judgement") | gsc("Mi%", partial=TRUE)
+    out <- searchMetadata(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("mikoto.txt", "mitsuko.txt", "kuroko.txt", "misaki.txt", "kazari.txt"))
 
     # ORs work correctly with field matches.
-    query <- defineTextQuery("mi%", partial=TRUE, field="last_name") | defineTextQuery("judgement")
-    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+    query <- gsc("mi%", partial=TRUE, field="last_name") | gsc("judgement")
+    out <- searchMetadata(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("mikoto.txt", "kuroko.txt", "kazari.txt"))
 
     # Nested ORs are collapsed properly.
-    query <- (defineTextQuery("teleport") | defineTextQuery("aerohand")) | defineTextQuery("mental")
-    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+    query <- (gsc("teleport") | gsc("aerohand")) | gsc("mental")
+    out <- searchMetadata(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("mitsuko.txt", "kuroko.txt", "misaki.txt"))
 
-    query <- (defineTextQuery("%sa%", field="school", partial=TRUE) | defineTextQuery("mental"))
-    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+    query <- (gsc("%sa%", field="school", partial=TRUE) | gsc("mental"))
+    out <- searchMetadata(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("misaki.txt", "ruiko.txt", "kazari.txt"))
 })
 
-test_that("searchMetadataText works with combined AND and OR searches", {
+test_that("searchMetadata works with combined AND and OR searches", {
     # OR that contains an AND.
-    query <- (defineTextQuery("judgement") & defineTextQuery("sakugawa")) | defineTextQuery("aerohand") | defineTextQuery("vector")
-    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+    query <- (gsc("judgement") & gsc("sakugawa")) | gsc("aerohand") | gsc("vector")
+    out <- searchMetadata(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("mitsuko.txt", "kazari.txt", "accelerator.txt"))
 
     # OR that contains multiple ANDs.
-    query <- (defineTextQuery("judgement") & defineTextQuery("sakugawa")) | (defineTextQuery("female") & defineTextQuery("rank"))
-    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+    query <- (gsc("judgement") & gsc("sakugawa")) | (gsc("female") & gsc("rank"))
+    out <- searchMetadata(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("mikoto.txt", "misaki.txt", "kazari.txt"))
 
     # AND that contains an OR.
-    query <- defineTextQuery("rank") & (defineTextQuery("shokuhou") | defineTextQuery("kongou"))
-    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+    query <- gsc("rank") & (gsc("shokuhou") | gsc("kongou"))
+    out <- searchMetadata(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("misaki.txt"))
 
     # AND that contains multiple ORs.
-    query <- (defineTextQuery("rank") | defineTextQuery("judgement")) & (defineTextQuery("male") | defineTextQuery("teleport"))
-    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+    query <- (gsc("rank") | gsc("judgement")) & (gsc("male") | gsc("teleport"))
+    out <- searchMetadata(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("kuroko.txt", "accelerator.txt"))
 })
 
-test_that("searchMetadataText works for NOT searches", {
-    query <- !defineTextQuery("uiharu") 
-    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+test_that("searchMetadata works for NOT searches", {
+    query <- !gsc("uiharu") 
+    out <- searchMetadata(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("mikoto.txt", "mitsuko.txt", "kuroko.txt", "misaki.txt", "ruiko.txt", "accelerator.txt"))
 
-    query <- !defineTextQuery("mi%", partial=TRUE) 
-    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+    query <- !gsc("mi%", partial=TRUE) 
+    out <- searchMetadata(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("kuroko.txt", "ruiko.txt", "kazari.txt", "accelerator.txt"))
 
-    query <- !(defineTextQuery("uiharu") | defineTextQuery("rank"))
-    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+    query <- !(gsc("uiharu") | gsc("rank"))
+    out <- searchMetadata(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("mitsuko.txt", "kuroko.txt", "ruiko.txt"))
 
-    query <- defineTextQuery("rank") & !defineTextQuery("tokiwadai")
-    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+    query <- gsc("rank") & !gsc("tokiwadai")
+    out <- searchMetadata(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("accelerator.txt"))
 })
 
-test_that("searchMetadataText works for path-based searches", {
-    query <- definePathQuery(project="foo", asset="bar")
-    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+test_that("searchMetadata works for non-text-based searches", {
+    query <- gsc(project="foo", asset="bar")
+    out <- searchMetadata(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(sort(out$path), sort(c("mikoto.txt", "mitsuko.txt", "kuroko.txt", "misaki.txt", "ruiko.txt", "kazari.txt", "accelerator.txt"))) 
 
-    query <- definePathQuery(version="2")
-    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+    query <- gsc(version="2")
+    out <- searchMetadata(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("mitsuko.txt", "ruiko.txt"))
 
-    query <- definePathQuery(path="%ko_txt", partial=TRUE)
-    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+    query <- gsc(path="%ko_txt", partial=TRUE)
+    out <- searchMetadata(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("mitsuko.txt", "kuroko.txt", "ruiko.txt"))
 
+    query <- gsc(user="foo")
+    out <- searchMetadata(tmp, query, include.metadata=FALSE, latest=FALSE)
+    expect_identical(sort(out$path), sort(c("mikoto.txt", "misaki.txt", "accelerator.txt"))) 
+
+    query <- gsc(time=2, after=TRUE) & gsc(time=3, after=FALSE)
+    out <- searchMetadata(tmp, query, include.metadata=FALSE, latest=FALSE)
+    expect_identical(sort(out$path), sort(c("kuroko.txt", "kazari.txt")))
+
     # Combines with the other searches.
-    query <- definePathQuery(path="kuroko.txt") | defineTextQuery("railgun")
-    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+    query <- gsc(path="kuroko.txt") | gsc("railgun")
+    out <- searchMetadata(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(out$path, c("mikoto.txt", "kuroko.txt"))
 })
 
-test_that("searchMetadataText works with ill-defined filters", {
+test_that("searchMetadata works with ill-defined filters", {
     # We return everything.
-    out <- searchMetadataText(tmp, "     ", include.metadata=FALSE, latest=FALSE)
+    out <- searchMetadata(tmp, "     ", include.metadata=FALSE, latest=FALSE)
     expect_identical(nrow(out), 7L)
 
     # Ill-defined filters are ignored in boolean operations.
-    query <- defineTextQuery("female") & defineTextQuery("    ")
-    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+    query <- gsc("female") & gsc("    ")
+    out <- searchMetadata(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(nrow(out), 6L)
 
-    query <- defineTextQuery("male") | defineTextQuery("    ")
-    out <- searchMetadataText(tmp, query, include.metadata=FALSE, latest=FALSE)
+    query <- gsc("male") | gsc("    ")
+    out <- searchMetadata(tmp, query, include.metadata=FALSE, latest=FALSE)
     expect_identical(nrow(out), 1L)
 })
 
-test_that("searchMetadataText respects the other output options", {
-    out <- searchMetadataText(tmp, c("female"))
+test_that("searchMetadata respects the other output options", {
+    out <- searchMetadata(tmp, c("female"))
     expect_identical(out$path, c("kuroko.txt", "kazari.txt"))
     expect_identical(out$path, paste0(vapply(out$metadata, function(x) x$first_name, ""), ".txt"))
 })

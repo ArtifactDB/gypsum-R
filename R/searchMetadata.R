@@ -5,12 +5,12 @@
 #' see \url{https://github.com/ArtifactDB/bioconductor-metadata-index} for details.
 #'
 #' @param query Character vector specifying the query to execute.
-#' Alternatively, a \code{gypsum.search.clause} produced by \code{defineTextQuery} or \code{definePathQuery}.
-#' @param path For \code{searchMetadataText}, a string containing a path to a SQLite file, usually obtained via \code{\link{fetchMetadataDatabase}}.
+#' Alternatively, a \code{gypsum.search.clause} produced by \code{gsc}.
+#' @param path For \code{searchMetadata}, a string containing a path to a SQLite file, usually obtained via \code{\link{fetchMetadataDatabase}}.
 #' 
-#' For \code{definePathQuery}, the suffix of the object key of the metadata document, 
+#' For \code{gsc}, the suffix of the object key of the metadata document, 
 #' i.e., the relative \dQuote{path} to the metadata file inside the version's \dQuote{directory}.
-#' This may be missing as long as other arguments are supplied to \code{definePathQuery}.
+#' This may be missing as long as other arguments are supplied to \code{gsc}.
 #' @param latest Logical scalar indicating whether to only search for matches within the latest version of each asset.
 #' @param include.metadata Logical scalar indicating whether metadata should be returned.
 #' @param pid.name String containing the name/alias of the column of the \code{paths} table that contains the path ID.
@@ -18,23 +18,26 @@
 #' @param asset.name String containing the name/alias of the column of the \code{versions} table that contains the asset name.
 #' @param version.name String containing the name/alias of the column of the \code{versions} table that contains the version name.
 #' @param path.name String containing the name/alias of the column of the \code{paths} table that contains the path name.
+#' @param user.name String containing the name/alias of the column of the \code{versions} table that contains the user ID of the uploader.
+#' @param time.name String containing the name/alias of the column of the \code{versions} table that contains the upload time.
 #' @param text String containing the text to query on.
 #' This will be automatically tokenized, see Details.
 #' @param project String containing the name of the project.
-#' This may be missing as long as other arguments are supplied to \code{definePathQuery}.
+#' This may be missing as long as other arguments are supplied to \code{gsc}.
 #' @param asset String containing the name of the asset.
-#' This may be missing as long as other arguments are supplied to \code{definePathQuery}.
+#' This may be missing as long as other arguments are supplied to \code{gsc}.
 #' @param version String containing the name of the version.
-#' This may be missing as long as other arguments are supplied to \code{definePathQuery}.
+#' This may be missing as long as other arguments are supplied to \code{gsc}.
+#' @param user String containing the user ID of the uploader.
+#' @param time Number specifying the Unix timestamp (in seconds) at which the upload was finished.
 #' @param field String specifying the name of the metadata field in which to search for \code{text}.
 #' If \code{NULL}, the search is performed on all available metadata fields.
-#' @param partial For \code{defineTextQuery}, a logical scalar indicating whether \code{text} contains SQLite wildcards (\code{\%}, \code{_}) for a partial search.
-#' If \code{TRUE}, the wildcards are preserved during tokenization.
-#'
-#' For \code{definePathQuery}, a logical scalar indicating whether non-missing \code{project}, \code{asset}, \code{version} and \code{path} contains wildcards for a partial search.
+#' @param partial For \code{gsc}, a logical scalar indicating whether \code{text}, \code{project}, \code{asset}, \code{version}, \code{path} or \code{user} 
+#' contains SQLite wildcards (\code{\%}, \code{_}) for a partial search.
+#' For \code{text}, setting \code{partial=TRUE} means that the wildcards are preserved during tokenization.
 #'
 #' @return 
-#' For \code{searchMetadataText}, a data frame specifying the contaning the search results.
+#' For \code{searchMetadata}, a data frame specifying the contaning the search results.
 #' \itemize{
 #' \item The \code{project}, \code{asset} and \code{version} columns contain the identity of the version with matching metadata.
 #' \item The \code{path} column contains the suffix of the object key of the metadata document,
@@ -45,12 +48,11 @@
 #' Otherwise, only the latest version is returned.
 #' }
 #'
-#' For \code{searchMetadataTextFilter}, a list containing \code{where}, a string can be directly used as a WHERE filter condition in a SQL SELECT statement;
+#' For \code{searchMetadataFilter}, a list containing \code{where}, a string can be directly used as a WHERE filter condition in a SQL SELECT statement;
 #' and \code{parameters}, the parameter bindings to be used in \code{where}.
 #' The return value may also be \code{NULL} if the query has no well-defined filter.
 #'
-#' For \code{defineTextQuery} and \code{definePathQuery},
-#' a \code{gypsum.search.clause} object that can be used in \code{|}, \code{&} and \code{!} to create more complex queries involving multiple clauses.
+#' For \code{gsc}, a gypsum.search.clause object that can be used in \code{|}, \code{&} and \code{!} to create more complex queries involving multiple clauses.
 #'
 #' @author Aaron Lun
 #'
@@ -60,7 +62,7 @@
 #' If a text query involves only non-letter/number/dash characters, the filter will not be well-defined and will be ignored when constructing SQL statements.
 #'
 #' For convenience, a non-empty character vector may be used in \code{query}.
-#' A character vector of length 1 is treated as shorthand for a text query with default arguments in \code{defineTextQuery}.
+#' A character vector of length 1 is treated as shorthand for a text query with default arguments in \code{gsc}.
 #' A character vector of length greater than 1 is treated as shorthand for an AND operation on default text queries for each of the individual strings.
 #' 
 #' @seealso
@@ -70,23 +72,27 @@
 #' 
 #' @examples
 #' path <- fetchMetadataDatabase()
-#' searchMetadataText(path, c("mouse", "brain"), include.metadata=FALSE)
+#' searchMetadata(path, c("mouse", "brain"), include.metadata=FALSE)
 #'
 #' # Now for a slightly more complex query:
-#' is.mouse <- defineTextQuery("10090", field="taxonomy_id")
-#' query <- (defineTextQuery("brain") | defineTextQuery("pancreas")) & is.mouse
-#' searchMetadataText(path, query, include.metadata=FALSE)
+#' is.mouse <- gsc("10090", field="taxonomy_id")
+#' query <- (gsc("brain") | gsc("pancreas")) & is.mouse
+#' searchMetadata(path, query, include.metadata=FALSE)
 #'
 #' # Throwing in some wildcards.
-#' has.neuro <- defineTextQuery("Neuro%", partial=TRUE)
-#' searchMetadataText(path, has.neuro, include.metadata=FALSE)
+#' has.neuro <- gsc("Neuro%", partial=TRUE)
+#' searchMetadata(path, has.neuro, include.metadata=FALSE)
 #'
 #' @aliases
 #' gypsum.search.clause
 #' Ops.gypsum.search.clause
+#' searchMetadataText
+#' defineTextQuery
+#' searchMetadataTextFilter
+#'
 #' @export
-searchMetadataText <- function(path, query, latest=TRUE, include.metadata=TRUE) {
-    where <- searchMetadataTextFilter(query)
+searchMetadata <- function(path, query, latest=TRUE, include.metadata=TRUE) {
+    where <- searchMetadataFilter(query)
     cond <- where$where
     params <- where$parameters
 
@@ -121,32 +127,41 @@ searchMetadataText <- function(path, query, latest=TRUE, include.metadata=TRUE) 
 }
 
 #' @export
-#' @rdname searchMetadataText
-defineTextQuery <- function(text, field=NULL, partial=FALSE) {
-    output <- list(type="text", text=text, field=field, partial=partial)
-    class(output) <- "gypsum.search.clause"
-    output
+searchMetadataText <- function(...) {
+    searchMetadata(...) # Soft-deprecated.
 }
 
 #' @export
 #' @rdname searchMetadataText
-definePathQuery <- function(project, asset, version, path, partial=FALSE) {
+gsc <- function(text=NULL, project=NULL, asset=NULL, version=NULL, path=NULL, user=NULL, time=NULL, field=NULL, partial=FALSE, after=TRUE) {
     collected <- list()
 
-    if (!missing(project)) {
+    if (!is.null(text)) {
+        collected <- c(collected, list(list(type="text", text=text, field=field, partial=partial)))
+    }
+
+    if (!is.null(project)) {
         collected <- c(collected, list(list(type = "project", project = project, partial = partial)))
     }
 
-    if (!missing(asset)) {
+    if (!is.null(asset)) {
         collected <- c(collected, list(list(type = "asset", asset = asset, partial = partial)))
     }
 
-    if (!missing(version)) {
+    if (!is.null(version)) {
         collected <- c(collected, list(list(type = "version", version = version, partial = partial)))
     }
 
-    if (!missing(path)) {
+    if (!is.null(path)) {
         collected <- c(collected, list(list(type = "path", path = path, partial = partial)))
+    }
+
+    if (!is.null(user)) {
+        collected <- c(collected, list(list(type = "user", user = user, partial = partial)))
+    }
+
+    if (!is.null(time)) {
+        collected <- c(collected, list(list(type = "time", time = as.double(time), after=after)))
     }
 
     for (i in seq_along(collected)) {
@@ -154,7 +169,7 @@ definePathQuery <- function(project, asset, version, path, partial=FALSE) {
     }
 
     if (length(collected) == 0) {
-        stop("at least one of 'project', 'asset', 'version' or 'path' must be specified")
+        stop("at least one of 'text', 'project', 'asset', 'version', 'path', 'user' or 'time' must be specified")
     } else if (length(collected) == 1) {
         collected[[1]]
     } else {
@@ -162,6 +177,11 @@ definePathQuery <- function(project, asset, version, path, partial=FALSE) {
         class(output) <- "gypsum.search.clause"
         output
     }
+}
+
+#' @export
+defineTextQuery <- function(text, field=NULL, partial=FALSE) {
+    gsc(text, field=field, partial=partial) # Soft-deprecated.
 }
 
 #' @export
@@ -180,14 +200,16 @@ Ops.gypsum.search.clause <- function(e1, e2) {
 }
 
 #' @export
-#' @rdname searchMetadataText
-searchMetadataTextFilter <- function(
+#' @rdname searchMetadata
+searchMetadataFilter <- function(
     query,
     pid.name = 'paths.pid', 
     project.name="versions.project",
     asset.name="versions.asset",
     version.name="versions.version",
-    path.name="paths.path")
+    path.name="paths.path",
+    user.name="versions.user",
+    time.name="versions.time")
 {
     query <- sanitize_query(query)
     if (is.null(query)) {
@@ -199,7 +221,9 @@ searchMetadataTextFilter <- function(
         project=project.name,
         asset=asset.name,
         version=version.name,
-        path=path.name
+        path=path.name,
+        user=user.name,
+        time=time.name
     )
 
     env <- new.env()
@@ -208,20 +232,25 @@ searchMetadataTextFilter <- function(
     list(where=cond, parameters=env$parameters)
 }
 
+#' @export
+searchMetadataTextFilter <- function(...) {
+    searchMetadataFilter(...) # Soft-deprecated.
+}
+
 sanitize_query <- function(query) {
     if (is.character(query)) {
         if (length(query) > 1) {
-            query <- list(type="and", children=lapply(query, defineTextQuery))
+            query <- list(type="and", children=lapply(query, gsc))
             class(query) <- "gypsum.search.clause"
         } else if (length(query) == 1L) {
-            query <- defineTextQuery(query)
+            query <- gsc(query)
         } else {
             stop("character vector must be non-empty")
         }
     }
 
     qt <- query$type
-    if (qt %in% c("project", "asset", "version", "path")) {
+    if (qt %in% c("project", "asset", "version", "path", "user", "time")) {
         return(query)
     }
 
@@ -317,7 +346,7 @@ build_query <- function(query, names, env) {
         }
     }
 
-    if (qt %in% c("project", "asset", "version", "path")) {
+    if (qt %in% c("project", "asset", "version", "path", "user")) {
         nt <- add_query_parameter(env, query[[qt]])
         db.name <- names[[qt]]
         if (isTRUE(query$partial)) {
@@ -325,6 +354,13 @@ build_query <- function(query, names, env) {
         } else {
             return(sprintf("%s = :%s", db.name, nt))
         }
+    }
+
+    if (qt == "time") {
+        nt <- add_query_parameter(env, query[[qt]])
+        db.name <- names[[qt]]
+        op <- if (isTRUE(query$after)) ">" else "<="
+        return(sprintf("%s %s :%s", db.name, op, nt))
     }
 
     if (qt == "not") {
