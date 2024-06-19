@@ -22,6 +22,7 @@
 #' @param time.name String containing the name/alias of the column of the \code{versions} table that contains the upload time.
 #' @param text String containing the text to query on.
 #' This will be automatically tokenized, see Details.
+#' This may be missing as long as other arguments are supplied to \code{gsc}.
 #' @param project String containing the name of the project.
 #' This may be missing as long as other arguments are supplied to \code{gsc}.
 #' @param asset String containing the name of the asset.
@@ -29,20 +30,24 @@
 #' @param version String containing the name of the version.
 #' This may be missing as long as other arguments are supplied to \code{gsc}.
 #' @param user String containing the user ID of the uploader.
+#' This may be missing as long as other arguments are supplied to \code{gsc}.
 #' @param time Number specifying the Unix timestamp (in seconds) at which the upload was finished.
+#' This may be missing as long as other arguments are supplied to \code{gsc}.
 #' @param field String specifying the name of the metadata field in which to search for \code{text}.
 #' If \code{NULL}, the search is performed on all available metadata fields.
 #' @param partial For \code{gsc}, a logical scalar indicating whether \code{text}, \code{project}, \code{asset}, \code{version}, \code{path} or \code{user} 
 #' contains SQLite wildcards (\code{\%}, \code{_}) for a partial search.
-#' For \code{text}, setting \code{partial=TRUE} means that the wildcards are preserved during tokenization.
+#' For \code{text}, setting \code{partial=TRUE} also ensures that the wildcards are preserved during tokenization.
 #'
 #' @return 
 #' For \code{searchMetadata}, a data frame specifying the contaning the search results.
 #' \itemize{
-#' \item The \code{project}, \code{asset} and \code{version} columns contain the identity of the version with matching metadata.
+#' \item The \code{project}, \code{asset} and \code{version} columns specify the version of the project asset with matching metadata.
 #' \item The \code{path} column contains the suffix of the object key of the metadata document,
 #' i.e., the relative \dQuote{path} within the version's \dQuote{directory} to the metadata document.
 #' The full object key of the document inside the bucket is defined as \code{{project}/{asset}/{version}/{path}}.
+#' \item The \code{user} column contains the identity of the uploading user.
+#' \item The \code{time} column contains the time of the upload.
 #' \item If \code{include.metadata=TRUE}, a \code{metadata} column is present with the nested metadata for each match.
 #' \item If \code{latest=TRUE}, a \code{latest} column is present indicating whether the matching version is the latest for its asset.
 #' Otherwise, only the latest version is returned.
@@ -98,8 +103,12 @@ searchMetadata <- function(path, query, latest=TRUE, include.metadata=TRUE) {
 
     conn <- DBI::dbConnect(RSQLite::SQLite(), path)
     on.exit(DBI::dbDisconnect(conn), add=TRUE, after=FALSE)
+    version <- DBI::dbGetQuery(conn, "PRAGMA user_version")[,1]
 
-    stmt <- "SELECT versions.project AS project, versions.asset AS asset, versions.version AS version, path";
+    stmt <- "SELECT versions.project AS project, versions.asset AS asset, versions.version AS version, path"
+    if (version >= 1001000) {
+        stmt <- paste0(stmt, ", versions.user AS user, versions.time AS time")
+    }
     if (include.metadata) {
         stmt <- paste0(stmt, ", json_extract(metadata, '$') AS metadata")
     }
@@ -123,6 +132,10 @@ searchMetadata <- function(path, query, latest=TRUE, include.metadata=TRUE) {
     if (include.metadata) {
         everything$metadata <- lapply(everything$metadata, fromJSON, simplifyVector=FALSE)
     }
+    if (version >= 1001000) {
+        everything$time <- as.POSIXct(everything$time)
+    }
+
     everything
 }
 
@@ -132,7 +145,7 @@ searchMetadataText <- function(...) {
 }
 
 #' @export
-#' @rdname searchMetadataText
+#' @rdname searchMetadata
 gsc <- function(text=NULL, project=NULL, asset=NULL, version=NULL, path=NULL, user=NULL, time=NULL, field=NULL, partial=FALSE, after=TRUE) {
     collected <- list()
 
