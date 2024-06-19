@@ -1,6 +1,6 @@
-#' Text search on the metadata database
+#' Search the metadata database
 #'
-#' Perform a text search on a SQLite database containing metadata from the gypsum backend.
+#' Search a SQLite database containing metadata from the gypsum backend.
 #' This is based on a precomputed tokenization of all string properties in each metadata document;
 #' see \url{https://github.com/ArtifactDB/bioconductor-metadata-index} for details.
 #'
@@ -38,6 +38,8 @@
 #' @param partial For \code{gsc}, a logical scalar indicating whether \code{text}, \code{project}, \code{asset}, \code{version}, \code{path} or \code{user} 
 #' contains SQLite wildcards (\code{\%}, \code{_}) for a partial search.
 #' For \code{text}, setting \code{partial=TRUE} also ensures that the wildcards are preserved during tokenization.
+#' @param after Logical scalar indicating whether to search for documents that were uploaded after \code{time}.
+#' If \code{FALSE}, the search will instead consider documents that were uploaded at or before \code{time}.
 #'
 #' @return 
 #' For \code{searchMetadata}, a data frame specifying the contaning the search results.

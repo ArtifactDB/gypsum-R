@@ -9,7 +9,7 @@
 \alias{searchMetadataTextFilter}
 \alias{gsc}
 \alias{searchMetadataFilter}
-\title{Text search on the metadata database}
+\title{Search the metadata database}
 \usage{
 searchMetadata(path, query, latest = TRUE, include.metadata = TRUE)
 
@@ -77,6 +77,9 @@ If \code{NULL}, the search is performed on all available metadata fields.}
 contains SQLite wildcards (\code{\%}, \code{_}) for a partial search.
 For \code{text}, setting \code{partial=TRUE} also ensures that the wildcards are preserved during tokenization.}
 
+\item{after}{Logical scalar indicating whether to search for documents that were uploaded after \code{time}.
+If \code{FALSE}, the search will instead consider documents that were uploaded at or before \code{time}.}
+
 \item{pid.name}{String containing the name/alias of the column of the \code{paths} table that contains the path ID.}
 
 \item{project.name}{String containing the name/alias of the column of the \code{versions} table that contains the project name.}
@@ -112,7 +115,7 @@ The return value may also be \code{NULL} if the query has no well-defined filter
 For \code{gsc}, a gypsum.search.clause object that can be used in \code{|}, \code{&} and \code{!} to create more complex queries involving multiple clauses.
 }
 \description{
-Perform a text search on a SQLite database containing metadata from the gypsum backend.
+Search a SQLite database containing metadata from the gypsum backend.
 This is based on a precomputed tokenization of all string properties in each metadata document;
 see \url{https://github.com/ArtifactDB/bioconductor-metadata-index} for details.
 }
